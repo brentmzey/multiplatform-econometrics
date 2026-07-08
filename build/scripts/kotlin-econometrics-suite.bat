@@ -70,11 +70,11 @@ goto fail
 :execute
 @rem Setup the command line
 
-set CLASSPATH=%APP_HOME%\lib\kotlin-econometrics-suite.jar;%APP_HOME%\lib\mordant-omnibus-jvm.jar;%APP_HOME%\lib\mordant-jvm-jna-jvm.jar;%APP_HOME%\lib\mordant-jvm-ffm-jvm.jar;%APP_HOME%\lib\mordant-jvm-graal-ffi-jvm.jar;%APP_HOME%\lib\mordant-jvm.jar;%APP_HOME%\lib\colormath-jvm.jar;%APP_HOME%\lib\kotlin-stdlib-2.0.10.jar;%APP_HOME%\lib\commons-math3-3.6.1.jar;%APP_HOME%\lib\slf4j-nop-2.0.13.jar;%APP_HOME%\lib\annotations-13.0.jar;%APP_HOME%\lib\slf4j-api-2.0.13.jar;%APP_HOME%\lib\jna-5.14.0.jar
+set CLASSPATH=%APP_HOME%\lib\kotlin-econometrics-suite.jar;%APP_HOME%\lib\mordant-omnibus-jvm.jar;%APP_HOME%\lib\plot-api-jvm-4.9.3.jar;%APP_HOME%\lib\lets-plot-common-4.5.2.jar;%APP_HOME%\lib\kotlin-logging-jvm-2.0.5.jar;%APP_HOME%\lib\mordant-jvm-jna-jvm.jar;%APP_HOME%\lib\mordant-jvm-ffm-jvm.jar;%APP_HOME%\lib\mordant-jvm-graal-ffi-jvm.jar;%APP_HOME%\lib\mordant-jvm.jar;%APP_HOME%\lib\commons-jvm-4.5.2.jar;%APP_HOME%\lib\datamodel-jvm-4.5.2.jar;%APP_HOME%\lib\plot-base-jvm-4.5.2.jar;%APP_HOME%\lib\plot-builder-jvm-4.5.2.jar;%APP_HOME%\lib\plot-stem-jvm-4.5.2.jar;%APP_HOME%\lib\deprecated-in-v4-jvm-4.5.2.jar;%APP_HOME%\lib\kotlinx-coroutines-core-jvm-1.7.1.jar;%APP_HOME%\lib\colormath-jvm.jar;%APP_HOME%\lib\kotlin-stdlib-jdk8-1.8.20.jar;%APP_HOME%\lib\kotlin-stdlib-jdk7-1.8.20.jar;%APP_HOME%\lib\kotlin-stdlib-2.0.10.jar;%APP_HOME%\lib\commons-math3-3.6.1.jar;%APP_HOME%\lib\slf4j-nop-2.0.13.jar;%APP_HOME%\lib\annotations-23.0.0.jar;%APP_HOME%\lib\slf4j-api-2.0.13.jar;%APP_HOME%\lib\jna-5.14.0.jar
 
 
 @rem Execute kotlin-econometrics-suite
-"%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %KOTLIN_ECONOMETRICS_SUITE_OPTS%  -classpath "%CLASSPATH%" org.research.causal.CardStudyKt %*
+"%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %KOTLIN_ECONOMETRICS_SUITE_OPTS%  -classpath "%CLASSPATH%" org.research.causal.EconometricsSuiteKt %*
 
 :end
 @rem End local scope for the variables with windows NT shell

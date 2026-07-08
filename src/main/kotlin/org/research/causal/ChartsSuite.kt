@@ -7,37 +7,38 @@ import org.jetbrains.letsPlot.geom.geomSmooth
 import org.jetbrains.letsPlot.letsPlot
 import org.jetbrains.letsPlot.label.labs
 import org.jetbrains.letsPlot.pos.positionJitter
+import org.jetbrains.letsPlot.intern.Plot
 import java.io.File
 
 fun main() {
     println("Generating Data.gov Nutrition/Obesity Visualizations in Kotlin...")
     
     // We'll read the CSV downloaded from data.gov and create a simple chart
-    val file = File("nutrition_obesity.csv")
+    val file: File = File("nutrition_obesity.csv")
     if (!file.exists()) {
         println("nutrition_obesity.csv not found. Run python downloader first.")
         return
     }
 
-    val lines = file.readLines()
-    val header = lines.first().split(",").map { it.trim().removeSurrounding("\"") }
-    val valIdx = header.indexOf("data_value")
-    val classIdx = header.indexOf("class")
+    val lines: List<String> = file.readLines()
+    val header: List<String> = lines.first().split(",").map { it.trim().removeSurrounding("\"") }
+    val valIdx: Int = header.indexOf("data_value")
+    val classIdx: Int = header.indexOf("class")
 
-    val classes = mutableListOf<String>()
-    val values = mutableListOf<Double>()
+    val classes: MutableList<String> = mutableListOf<String>()
+    val values: MutableList<Double> = mutableListOf<Double>()
 
-    for (line in lines.drop(1)) {
-        val parts = line.split(",").map { it.trim().removeSurrounding("\"") }
+    for (line: String in lines.drop(1)) {
+        val parts: List<String> = line.split(",").map { it.trim().removeSurrounding("\"") }
         try {
-            val v = parts[valIdx].toDouble()
-            val c = parts[classIdx]
+            val v: Double = parts[valIdx].toDouble()
+            val c: String = parts[classIdx]
             classes.add(c)
             values.add(v)
         } catch (e: Exception) {}
     }
 
-    val data = mapOf(
+    val data: Map<String, List<Any>> = mapOf(
         "Class" to classes,
         "Data_Value" to values
     )
@@ -55,12 +56,12 @@ fun main() {
     println("Saved nutrition_obesity_kotlin.html")
 
     // Synthetic econometric regression chart
-    val rand = java.util.Random(42)
-    val n = 200
-    val xData = List(n) { rand.nextGaussian() * 10 + 50 }
-    val yData = xData.map { it * 0.8 + rand.nextGaussian() * 5 + 10 }
+    val rand: java.util.Random = java.util.Random(42)
+    val n: Int = 200
+    val xData: List<Double> = List(n) { rand.nextGaussian() * 10 + 50 }
+    val yData: List<Double> = xData.map { it * 0.8 + rand.nextGaussian() * 5 + 10 }
     
-    val synthData = mapOf("HealthIndex" to xData, "Outcome" to yData)
+    val synthData: Map<String, List<Double>> = mapOf("HealthIndex" to xData, "Outcome" to yData)
     val p2 = letsPlot(synthData) { x = "HealthIndex"; y = "Outcome" } +
              geomPoint(color = "#10b981", alpha = 0.6) +
              geomSmooth(method = "lm", color = "#ef4444", size = 2) +
