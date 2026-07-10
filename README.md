@@ -96,28 +96,37 @@ To run the Desktop native app UI:
 
 ---
 
-## 📦 How to Download and Install Releases
+## 📦 How to Download, Install, and Deploy
 
-Whenever a new version of this project is ready, our GitHub Actions pipeline automatically builds all the native apps for **Desktop (macOS/Windows/Linux), Android (APK), iOS, and Web**, along with the Python Dashboard.
+Whenever a new version of this project is ready, our GitHub Actions pipeline automatically builds all the targets and creates a Semantic Release on GitHub.
 
-### Downloading the Latest Release:
+### ⬇️ Downloading the Latest Release:
 1. Go to the **Releases** section on the right side of this GitHub repository.
 2. Click on the latest version tag (e.g., `v1.0.0`).
-3. Under the **Assets** dropdown, download the `econometrics-suite-release.zip` file.
+3. Under the **Assets** dropdown, download the built artifacts (e.g., `Ktor-Server-Jar.zip`, `Web-WasmJs.zip`).
 
-### Installation Instructions:
+### 💻 Local Installation Instructions:
 
-**Python Web Dashboard (Local Server)**
-1. Extract the downloaded `.zip` folder.
-2. Inside the `python` folder, you will find `app.py` and the data generating scripts.
-3. Simply run `./start_dashboard.sh` (or `uv run uvicorn app:app --reload` manually).
-4. Open your browser to `http://127.0.0.1:8000`.
+**Backend Server (Ktor)**
+1. Extract `Ktor-Server-Jar.zip`.
+2. Run the executable `.jar` file by running `java -jar kotlin-econometrics-suite-fat.jar` in your terminal. This will launch the backend API server locally on port 8080!
 
-**Desktop App (Kotlin Multiplatform JVM)**
-1. Inside the `kotlin` folder, locate the extracted `build/libs` directory.
-2. Run the executable `.jar` file by double-clicking it, or by running `java -jar <filename>.jar` in your terminal. This will launch the native desktop Compose application!
+**Web App (WasmJs)**
+1. Extract `Web-WasmJs.zip`.
+2. Open the directory and serve the static files using a simple local web server (e.g., `python3 -m http.server 8000`).
+3. Open your browser to `http://127.0.0.1:8000` to interact with the Kotlin Web App!
 
 **Android App**
-1. Inside the `kotlin/build/outputs/apk/debug/` folder, find the `.apk` file.
-2. Transfer this file to your Android phone or an Android emulator.
-3. Open it on the phone to install the Econometrics Mobile App. (You may need to allow "Install from Unknown Sources" in your settings).
+1. You can build the Android APK locally using `./gradlew assembleDebug` or grab it from the CI artifacts.
+2. Transfer the `.apk` file to your Android phone or an Android emulator.
+3. Open it on the phone to install the app. (You may need to allow "Install from Unknown Sources" in your settings).
+
+### ☁️ Deploying to the Cloud
+
+If you want to host this application for others on the internet, the backend server is fully Dockerized!
+1. Install Docker on your computer or cloud provider (like Fly.io, Render, or AWS).
+2. Build the server image: `docker build -t econometrics-server .`
+3. Run the container: `docker run -p 8080:8080 econometrics-server`
+4. The Web (Wasm) artifacts are purely static files (`.js`, `.wasm`, `.html`) and can be deployed directly to free static hosting services like **GitHub Pages, Vercel, or Netlify**.
+
+For a deeper dive into the specific data providers (like FRED and World Bank) and production deployment strategies, please check out our [Data & Deployment Guide](DATA_AND_DEPLOYMENT.md)!
