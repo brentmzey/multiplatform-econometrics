@@ -1,7 +1,7 @@
 plugins {
-    kotlin("multiplatform") version "2.0.0"
-    kotlin("plugin.serialization") version "2.0.0"
-    kotlin("plugin.compose") version "2.0.0"
+    kotlin("multiplatform") version "2.0.21"
+    kotlin("plugin.serialization") version "2.0.21"
+    kotlin("plugin.compose") version "2.0.21"
     id("org.jetbrains.compose") version "1.6.11"
     id("com.android.application") version "8.2.0"
 }
@@ -43,7 +43,8 @@ kotlin {
     sourceSets {
         val commonMain by getting {
             dependencies {
-                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
                 implementation(compose.runtime)
                 implementation(compose.foundation)
                 implementation(compose.material)
@@ -57,7 +58,7 @@ kotlin {
             dependencies {
                 implementation(kotlin("test"))
                 implementation("io.ktor:ktor-client-mock:3.0.0")
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0")
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
             }
         }
         val jvmMain by getting {
@@ -69,11 +70,12 @@ kotlin {
                 implementation("org.slf4j:slf4j-simple:2.0.13")
                 
                 // Ktor Server
-                implementation("io.ktor:ktor-server-core-jvm:2.3.11")
-                implementation("io.ktor:ktor-server-netty-jvm:2.3.11")
-                implementation("io.ktor:ktor-server-content-negotiation-jvm:2.3.11")
-                implementation("io.ktor:ktor-server-cors-jvm:2.3.11")
-                implementation("io.ktor:ktor-serialization-kotlinx-json-jvm:2.3.11")
+                implementation("io.ktor:ktor-server-core-jvm:3.0.0")
+                implementation("io.ktor:ktor-server-netty-jvm:3.0.0")
+                implementation("io.ktor:ktor-server-content-negotiation-jvm:3.0.0")
+                implementation("io.ktor:ktor-server-cors-jvm:3.0.0")
+                implementation("io.ktor:ktor-serialization-kotlinx-json-jvm:3.0.0")
+                implementation("io.ktor:ktor-client-cio:3.0.0")
                 
                 // GraphQL (Expedia Group)
                 implementation("com.expediagroup:graphql-kotlin-ktor-server:7.1.1")
@@ -82,7 +84,14 @@ kotlin {
         val jvmTest by getting {
             dependencies {
                 implementation(kotlin("test-junit"))
-                implementation("io.ktor:ktor-server-test-host:2.3.11")
+                implementation("io.ktor:ktor-server-test-host:3.0.0")
+            }
+        }
+        val androidMain by getting {
+            dependencies {
+                implementation("androidx.activity:activity-compose:1.8.2")
+                implementation("androidx.appcompat:appcompat:1.6.1")
+                implementation("androidx.core:core-ktx:1.12.0")
             }
         }
     }

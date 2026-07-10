@@ -2,141 +2,94 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ "main", "development" ]
-    tags: [ "v*.*.*", "v*-rc*" ]
+    branches:
+      - main
+      - development
   pull_request:
-    branches: [ "main", "development" ]
-  workflow_dispatch:
-
-# Ensure only one run per PR/branch is running at a time to save costs
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+    branches:
+      - main
+      - development
 
 jobs:
-  build-python-mvp:
-    name: Build & Test Python Backend
+  build_and_test:
+    name: Build & Test
+    runs-on: macos-latest # Needed for iOS targets
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'zulu'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Cache Kotlin Konan
+        uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: ${{ runner.os }}-konan-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-konan-
+
+      - name: Build and Test All Targets
+        run: ./gradlew check --no-daemon
+
+      - name: Package JVM Server App
+        run: ./gradlew :jvmJar --no-daemon
+
+      - name: Upload Server Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ktor-Server-Jar
+          path: build/libs/*jvm.jar
+
+      - name: Upload Web Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Web-WasmJs
+          path: build/dist/wasmJs/productionExecutable/
+
+  release:
+    name: Create SemVer Release
+    needs: build_and_test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v4
-      with:
-        enable-cache: true
-        cache-dependency-glob: "*.py"
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
 
-    - name: Set up Python 3.11
-      run: uv python install 3.11
+      - name: Install Semantic Release
+        run: npm install -g semantic-release @semantic-release/git @semantic-release/changelog @semantic-release/exec
 
-    - name: Verify or Generate Datasets
-      run: |
-        uv run --with httpx --with fastapi --with jinja2 --with pandas --with linearmodels python generate_datasets.py || echo "generate_datasets.py failed or skipped"
-      
-    - name: Test Python Dashboard
-      run: |
-        uv run --with pytest --with fastapi --with httpx --with jinja2 --with python-multipart --with pandas --with pandas-datareader --with yfinance --with lxml --with seaborn --with matplotlib --with linearmodels pytest test_app.py
+      - name: Download Server Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Ktor-Server-Jar
+          path: release-artifacts/server
 
-    - name: Upload Python Artifacts
-      if: success()
-      uses: actions/upload-artifact@v4
-      with:
-        name: python-mvp-artifacts
-        path: |
-          static/
-          templates/
-          *.csv
-          *.svg
-          app.py
-          charts_pipeline.py
-          download_open_datasets.py
+      - name: Download Web Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Web-WasmJs
+          path: release-artifacts/web
 
-  build-kmp:
-    name: Build & Test Kotlin Multiplatform (Server, Web, Android, iOS)
-    # Use macOS to ensure we can compile iOS targets!
-    runs-on: macos-latest
-    needs: build-python-mvp
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Zip Web Artifacts
+        run: zip -r release-artifacts/web.zip release-artifacts/web
 
-    - name: Set up JDK 21
-      uses: actions/setup-java@v4
-      with:
-        java-version: '21'
-        distribution: 'corretto'
-        cache: 'gradle'
-
-    - name: Setup Android SDK
-      uses: android-actions/setup-android@v3
-
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
-
-    - name: Test Shared Library
-      run: ./gradlew allTests --no-daemon || echo "Shared tests completed or none configured"
-
-    - name: Build JVM Server / Desktop App
-      run: ./gradlew fatJar --no-daemon
-
-    - name: Build Web (JS/Wasm)
-      # If JS/Wasm targets are added to build.gradle.kts, this builds them
-      run: ./gradlew jsBrowserProductionWebpack wasmJsBrowserProductionWebpack --no-daemon || echo "Web targets not fully configured yet, skipping..."
-
-    - name: Build Android App
-      # Builds the Android APK if the android plugin is configured
-      run: ./gradlew assembleDebug --no-daemon || echo "Android target not fully configured yet, skipping..."
-
-    - name: Build iOS App
-      # Builds the iOS framework for the KMP shared module
-      run: ./gradlew iosX64Binaries iosArm64Binaries iosSimulatorArm64Binaries --no-daemon
-
-    - name: Run KMP Tests (All Targets)
-      run: ./gradlew check --no-daemon
-
-    - name: Upload Kotlin Artifacts
-      if: success()
-      uses: actions/upload-artifact@v4
-      with:
-        name: kotlin-multiplatform-artifacts
-        path: |
-          build/libs/*.jar
-          build/outputs/apk/**/*.apk
-          build/distributions/
-
-  release-artifacts:
-    name: Create Semver Release
-    runs-on: ubuntu-latest
-    needs: [build-python-mvp, build-kmp]
-    if: startsWith(github.ref, 'refs/tags/v')
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Download Python Artifacts
-      uses: actions/download-artifact@v4
-      with:
-        name: python-mvp-artifacts
-        path: release/python
-
-    - name: Download Kotlin Artifacts
-      uses: actions/download-artifact@v4
-      with:
-        name: kotlin-multiplatform-artifacts
-        path: release/kotlin
-
-    - name: Zip Artifacts for Release
-      run: |
-        cd release
-        zip -r ../econometrics-suite-release.zip .
-        
-    - name: Create GitHub Release
-      uses: softprops/action-gh-release@v2
-      with:
-        files: econometrics-suite-release.zip
-        generate_release_notes: true
-        prerelease: ${{ contains(github.ref, '-rc') }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Run Semantic Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx semantic-release
