@@ -1,0 +1,16 @@
+<div class="gallery-grid">
+    {% if charts %}
+        {% for chart in charts %}
+        <div class="chart-card">
+            <h3>{{ chart.replace('_python.svg', '').replace('_', ' ').title() }}</h3>
+            <img src="/assets/{{ chart }}?t={{ range(1, 1000000) | random }}" alt="{{ chart }}">
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="status-container">
+            <div class="alert">
+                ℹ️ No charts found. Click 'Generate Charts' above!
+            </div>
+        </div>
+    {% endif %}
+</div>

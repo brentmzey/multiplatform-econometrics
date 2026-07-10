@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="org.research.causal.EconometricsQueryTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-07-10T03:45:56" hostname="Brents-MacBook-Pro-2.local" time="0.134">
+  <properties/>
+  <testcase name="testSummaryStats[jvm]" classname="org.research.causal.EconometricsQueryTest" time="0.134"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
