@@ -4,8 +4,6 @@ plugins {
     kotlin("plugin.compose") version "2.0.0"
     id("org.jetbrains.compose") version "1.6.11"
     id("com.android.application") version "8.2.0"
-    application
-    id("io.ktor.plugin") version "2.3.11"
 }
 
 repositories {
@@ -16,7 +14,7 @@ repositories {
 kotlin {
     jvmToolchain(21)
     jvm {
-        withJava()
+        // Removed withJava() to avoid java plugin conflict
     }
     
     androidTarget {
@@ -80,15 +78,24 @@ kotlin {
     }
 }
 
-
-
-application {
-    mainClass.set("org.research.causal.ApplicationKt")
-}
-
-tasks.named<JavaExec>("run") {
+// Custom run task to replace application plugin
+tasks.register<JavaExec>("run") {
+    val mainClassProp = System.getProperty("mainClass") ?: "org.research.causal.ApplicationKt"
+    mainClass.set(mainClassProp)
+    val jvmMain = kotlin.targets.getByName("jvm").compilations.getByName("main")
+    classpath = jvmMain.output.allOutputs + jvmMain.runtimeDependencyFiles
     standardOutput = System.out
     errorOutput = System.err
+}
+
+// Custom jvmJar task replacing application plugin's built-in fat jar behavior
+tasks.register<Jar>("jvmJar") {
+    val jvmMain = kotlin.targets.getByName("jvm").compilations.getByName("main")
+    from(jvmMain.output.allOutputs)
+    archiveClassifier.set("jvm")
+    manifest {
+        attributes["Main-Class"] = "org.research.causal.ApplicationKt"
+    }
 }
 
 android {
