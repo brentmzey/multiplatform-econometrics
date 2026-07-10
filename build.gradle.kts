@@ -48,6 +48,16 @@ kotlin {
                 implementation(compose.foundation)
                 implementation(compose.material)
                 implementation(compose.ui)
+                implementation("io.ktor:ktor-client-core:2.3.11")
+                implementation("io.ktor:ktor-client-content-negotiation:2.3.11")
+                implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.11")
+            }
+        }
+        val commonTest by getting {
+            dependencies {
+                implementation(kotlin("test"))
+                implementation("io.ktor:ktor-client-mock:2.3.11")
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0")
             }
         }
         val jvmMain by getting {
