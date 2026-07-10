@@ -92,6 +92,22 @@ kotlin {
                 implementation("androidx.activity:activity-compose:1.8.2")
                 implementation("androidx.appcompat:appcompat:1.6.1")
                 implementation("androidx.core:core-ktx:1.12.0")
+                implementation("io.ktor:ktor-client-okhttp:3.0.0")
+            }
+        }
+        val iosMain by creating {
+            dependsOn(commonMain)
+            dependencies {
+                implementation("io.ktor:ktor-client-darwin:3.0.0")
+            }
+        }
+        val iosX64Main by getting { dependsOn(iosMain) }
+        val iosArm64Main by getting { dependsOn(iosMain) }
+        val iosSimulatorArm64Main by getting { dependsOn(iosMain) }
+        
+        val wasmJsMain by getting {
+            dependencies {
+                implementation("io.ktor:ktor-client-core:3.0.0")
             }
         }
     }

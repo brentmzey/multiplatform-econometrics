@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="org.research.causal.WorldBankIntegrationTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-07-10T17:47:13" hostname="Brents-MacBook-Pro-2.local" time="2.644">
-  <properties/>
-  <testcase name="testFetchRemoteWorldBankData[jvm]" classname="org.research.causal.WorldBankIntegrationTest" time="2.644"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>

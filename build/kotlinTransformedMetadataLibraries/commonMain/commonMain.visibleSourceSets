@@ -1,3 +1,0 @@
-module org.jetbrains.kotlin:kotlin-stdlib:2.0.10 => commonMain
-module org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3 => commonMain
-module org.jetbrains.kotlinx:kotlinx-serialization-core:1.6.3 => commonMain
