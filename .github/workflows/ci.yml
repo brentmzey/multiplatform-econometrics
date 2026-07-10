@@ -79,7 +79,7 @@ jobs:
       run: ./gradlew allTests --no-daemon || echo "Shared tests completed or none configured"
 
     - name: Build JVM Server / Desktop App
-      run: ./gradlew jvmJar --no-daemon
+      run: ./gradlew fatJar --no-daemon
 
     - name: Build Web (JS/Wasm)
       # If JS/Wasm targets are added to build.gradle.kts, this builds them

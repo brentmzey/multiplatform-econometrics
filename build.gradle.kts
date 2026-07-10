@@ -83,16 +83,19 @@ tasks.register<JavaExec>("run") {
     val mainClassProp = System.getProperty("mainClass") ?: "org.research.causal.ApplicationKt"
     mainClass.set(mainClassProp)
     val jvmMain = kotlin.targets.getByName("jvm").compilations.getByName("main")
-    classpath = jvmMain.output.allOutputs + jvmMain.runtimeDependencyFiles
+    classpath = jvmMain.output.allOutputs + (jvmMain.runtimeDependencyFiles ?: files())
     standardOutput = System.out
     errorOutput = System.err
 }
 
-// Custom jvmJar task replacing application plugin's built-in fat jar behavior
-tasks.register<Jar>("jvmJar") {
+// Custom fatJar task replacing application plugin's built-in fat jar behavior
+tasks.register<Jar>("fatJar") {
     val jvmMain = kotlin.targets.getByName("jvm").compilations.getByName("main")
+    val dependencies = (jvmMain.runtimeDependencyFiles ?: files()).map { if (it.isDirectory) it else zipTree(it) }
     from(jvmMain.output.allOutputs)
-    archiveClassifier.set("jvm")
+    from(dependencies)
+    archiveClassifier.set("fat")
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     manifest {
         attributes["Main-Class"] = "org.research.causal.ApplicationKt"
     }
