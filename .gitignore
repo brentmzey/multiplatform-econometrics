@@ -1,0 +1,8 @@
+
+# AI / Agent Configuration Files
+.gemini/
+.cursor/
+.cursorrules
+.cline/
+.cody/
+.idx/
