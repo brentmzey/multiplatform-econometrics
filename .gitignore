@@ -7,3 +7,6 @@
 .cody/
 .idx/
 build/
+
+.gradle/
+.kotlin/
