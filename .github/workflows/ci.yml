@@ -38,14 +38,14 @@ jobs:
       - name: Build and Test All Targets
         run: ./gradlew check --no-daemon
 
-      - name: Package JVM Server App
-        run: ./gradlew :jvmJar --no-daemon
+      - name: Package Release Assets
+        run: ./gradlew fatJar wasmJsBrowserDistribution --no-daemon
 
       - name: Upload Server Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Ktor-Server-Jar
-          path: build/libs/*jvm.jar
+          path: build/libs/*fat.jar
 
       - name: Upload Web Artifact
         uses: actions/upload-artifact@v4
