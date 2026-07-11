@@ -1,3 +1,11 @@
+# [1.3.0](https://github.com/brentmzey/multiplatform-econometrics/compare/v1.2.0...v1.3.0) (2026-07-11)
+
+
+### Features
+
+* Add dynamic dataset parser, variable selection UI, and dynamic OLS execution to Dashboard ([8591370](https://github.com/brentmzey/multiplatform-econometrics/commit/859137021442d8af8c5ab2a49381f83edcdb5e2b))
+* Add dynamic dataset parser, variable selection UI, and dynamic OLS execution to Dashboard ([082e263](https://github.com/brentmzey/multiplatform-econometrics/commit/082e2634338b3026694acd3c43cb315d26fc9c58))
+
 # [1.2.0](https://github.com/brentmzey/multiplatform-econometrics/compare/v1.1.0...v1.2.0) (2026-07-11)
 
 
