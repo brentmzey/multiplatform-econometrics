@@ -1,15 +1,11 @@
-# Use a lightweight JRE base image
-FROM eclipse-temurin:17-jre-alpine
+FROM gradle:8.10.2-jdk21 AS build
+COPY --chown=gradle:gradle . /home/gradle/src
+WORKDIR /home/gradle/src
+# Build the JVM fat jar containing the Ktor GraphQL server
+RUN ./gradlew fatJar --no-daemon
 
-# Set the working directory
-WORKDIR /app
-
-# Copy the fat jar created by the build process
-# Adjust the name to match the Gradle output for the shadow/fat jar
-COPY build/libs/*jvm.jar /app/ktor-server.jar
-
-# Expose the port Ktor is configured to use
+FROM eclipse-temurin:21-jre
 EXPOSE 8080
-
-# Run the Ktor server
-CMD ["java", "-jar", "/app/ktor-server.jar"]
+RUN mkdir /app
+COPY --from=build /home/gradle/src/build/libs/*-fat.jar /app/econometrics-backend.jar
+ENTRYPOINT ["java", "-jar", "/app/econometrics-backend.jar"]
