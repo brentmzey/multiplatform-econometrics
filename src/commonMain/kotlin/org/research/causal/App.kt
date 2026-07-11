@@ -139,6 +139,13 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
 fun DashboardScreen(onLogout: () -> Unit) {
     var regressionOutput by remember { mutableStateOf<OLSResult?>(null) }
     var isCalculating by remember { mutableStateOf(false) }
+    
+    // Dataset State
+    var dataset by remember { mutableStateOf(parseCsv("Card Education Sample", SampleData.cardCsv)) }
+    
+    // Variable Selection State
+    var selectedY by remember { mutableStateOf(dataset.headers.firstOrNull() ?: "") }
+    var selectedXs by remember { mutableStateOf(dataset.headers.drop(1).toSet()) }
 
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
@@ -155,60 +162,134 @@ fun DashboardScreen(onLogout: () -> Unit) {
             }
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            backgroundColor = MaterialTheme.colors.surface,
-            modifier = Modifier.fillMaxWidth().weight(1f)
-        ) {
-            Column(modifier = Modifier.padding(24.dp)) {
-                Text("Causal Inference Engine (Local)", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-                Text("Run a native Ordinary Least Squares (OLS) regression on your device without hitting the server.", fontSize = 14.sp, color = Color.Gray)
-                
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Button(
-                    onClick = {
-                        isCalculating = true
-                        // Simulate some dataset (e.g. Y = Wage, X1 = Education, X2 = Experience)
-                        // In reality, this would be fetched from PocketBaseClient
-                        val yData = doubleArrayOf(50.0, 60.0, 65.0, 70.0, 80.0, 95.0, 110.0, 120.0, 150.0)
-                        val xData = arrayOf(
-                            doubleArrayOf(1.0, 12.0, 2.0),
-                            doubleArrayOf(1.0, 12.0, 5.0),
-                            doubleArrayOf(1.0, 14.0, 2.0),
-                            doubleArrayOf(1.0, 14.0, 4.0),
-                            doubleArrayOf(1.0, 16.0, 3.0),
-                            doubleArrayOf(1.0, 16.0, 6.0),
-                            doubleArrayOf(1.0, 18.0, 5.0),
-                            doubleArrayOf(1.0, 18.0, 8.0),
-                            doubleArrayOf(1.0, 20.0, 10.0)
-                        )
-                        
-                        // Execute Pure Kotlin OLS Math natively!
-                        val ols = OLS(yData, xData)
-                        regressionOutput = ols.estimate()
-                        isCalculating = false
-                    },
-                    modifier = Modifier.height(50.dp),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text("Run Local OLS Regression")
-                }
-
-                Spacer(modifier = Modifier.height(32.dp))
-
-                regressionOutput?.let { result ->
-                    Text("Regression Results", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colors.secondary)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("R-Squared: ${result.rSquared.toString().take(6)}")
+        Row(modifier = Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            // LEFT COLUMN: Data Preview and Selection
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                backgroundColor = MaterialTheme.colors.surface,
+                modifier = Modifier.weight(1f).fillMaxHeight()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Dataset: ${dataset.name}", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Select variables for the model below:", fontSize = 14.sp, color = Color.Gray)
                     Spacer(modifier = Modifier.height(16.dp))
+
+                    Text("Target Variable (Y):", fontWeight = FontWeight.Bold)
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        dataset.headers.forEach { header ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                RadioButton(
+                                    selected = selectedY == header,
+                                    onClick = { 
+                                        selectedY = header
+                                        selectedXs = selectedXs - header 
+                                    }
+                                )
+                                Text(header, fontSize = 14.sp)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Features (X):", fontWeight = FontWeight.Bold)
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        dataset.headers.forEach { header ->
+                            if (header != selectedY) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Checkbox(
+                                        checked = selectedXs.contains(header),
+                                        onCheckedChange = { checked ->
+                                            if (checked) selectedXs = selectedXs + header
+                                            else selectedXs = selectedXs - header
+                                        }
+                                    )
+                                    Text(header, fontSize = 14.sp)
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Text("Data Preview (Top 10 rows):", fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
                     
-                    Text("Coefficients:", fontWeight = FontWeight.Bold)
-                    Text("Intercept (β0): ${result.beta[0].toString().take(6)} (SE: ${result.standardErrors[0].toString().take(6)})")
-                    Text("Education (β1): ${result.beta[1].toString().take(6)} (SE: ${result.standardErrors[1].toString().take(6)})")
-                    Text("Experience (β2): ${result.beta[2].toString().take(6)} (SE: ${result.standardErrors[2].toString().take(6)})")
+                    // Simple Data Table Preview
+                    Column(modifier = Modifier.fillMaxWidth().background(Color.DarkGray).padding(8.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            dataset.headers.forEach { h -> Text(h, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f)) }
+                        }
+                        Divider(color = Color.Gray, modifier = Modifier.padding(vertical = 4.dp))
+                        dataset.rows.take(10).forEach { row ->
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                row.forEach { cell -> Text(cell.toString(), modifier = Modifier.weight(1f)) }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // RIGHT COLUMN: Math Execution and Results
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                backgroundColor = MaterialTheme.colors.surface,
+                modifier = Modifier.weight(1f).fillMaxHeight()
+            ) {
+                Column(modifier = Modifier.padding(24.dp)) {
+                    Text("Causal Inference Engine", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Run a native Ordinary Least Squares (OLS) regression.", fontSize = 14.sp, color = Color.Gray)
+                    
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Button(
+                        onClick = {
+                            isCalculating = true
+                            try {
+                                val yIdx = dataset.headers.indexOf(selectedY)
+                                val xIndices = selectedXs.map { dataset.headers.indexOf(it) }
+                                
+                                val yData = dataset.rows.map { it[yIdx] }.toDoubleArray()
+                                val xData = dataset.rows.map { row ->
+                                    val x = mutableListOf(1.0) // Intercept
+                                    xIndices.forEach { idx -> x.add(row[idx]) }
+                                    x.toDoubleArray()
+                                }.toTypedArray()
+                                
+                                val ols = OLS(yData, xData)
+                                regressionOutput = ols.estimate()
+                            } catch (e: Exception) {
+                                // Ignore math errors for now
+                            } finally {
+                                isCalculating = false
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().height(50.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        enabled = selectedY.isNotEmpty() && selectedXs.isNotEmpty()
+                    ) {
+                        Text("Run Local OLS Regression")
+                    }
+
+                    Spacer(modifier = Modifier.height(32.dp))
+
+                    regressionOutput?.let { result ->
+                        Text("Regression Results", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colors.secondary)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("R-Squared: ${result.rSquared.toString().take(6)}")
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        Text("Coefficients:", fontWeight = FontWeight.Bold)
+                        Text("Intercept (β0): ${result.beta[0].toString().take(6)} (SE: ${result.standardErrors[0].toString().take(6)})")
+                        
+                        val xList = selectedXs.toList()
+                        xList.forEachIndexed { index, feature ->
+                            val bIdx = index + 1
+                            if (bIdx < result.beta.size) {
+                                Text("$feature (β$bIdx): ${result.beta[bIdx].toString().take(6)} (SE: ${result.standardErrors[bIdx].toString().take(6)})")
+                            }
+                        }
+                    }
                 }
             }
         }
