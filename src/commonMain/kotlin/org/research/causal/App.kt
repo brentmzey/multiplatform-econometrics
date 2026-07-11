@@ -146,53 +146,119 @@ fun DashboardScreen(client: PocketBaseClient, onLogout: () -> Unit) {
     val coroutineScope = rememberCoroutineScope()
     
     // Dataset State
+    var datasets by remember { mutableStateOf<List<ParsedDataset>>(emptyList()) }
     var dataset by remember { mutableStateOf(parseCsv("Loading...", "")) }
     var selectedY by remember { mutableStateOf("") }
     var selectedXs by remember { mutableStateOf(emptySet<String>()) }
     
+    // Upload State
+    var showUploadDialog by remember { mutableStateOf(false) }
+    var uploadName by remember { mutableStateOf("") }
+    var uploadCsv by remember { mutableStateOf("") }
+    var isUploading by remember { mutableStateOf(false) }
+
+    fun refreshDatasets() {
+        isLoadingData = true
+        coroutineScope.launch {
+            try {
+                val records = client.getRecords("datasets")
+                val parsedList = records.items.mapNotNull { item ->
+                    try {
+                        val name = item["name"]?.toString()?.removeSurrounding("\"") ?: "Unknown Dataset"
+                        val headersElement = item["headers"]
+                        val headers = if (headersElement is kotlinx.serialization.json.JsonArray) {
+                            headersElement.map { it.toString().removeSurrounding("\"") }
+                        } else emptyList()
+
+                        val rowsElement = item["rows"]
+                        val rows = if (rowsElement is kotlinx.serialization.json.JsonArray) {
+                            rowsElement.mapNotNull { rowElem ->
+                                if (rowElem is kotlinx.serialization.json.JsonArray) {
+                                    rowElem.map { it.toString().toDouble() }
+                                } else null
+                            }
+                        } else emptyList()
+                        
+                        ParsedDataset(name, headers, rows)
+                    } catch(e: Exception) { null }
+                }
+                
+                datasets = parsedList
+                if (parsedList.isNotEmpty() && dataset.name == "Loading...") {
+                    dataset = parsedList.first()
+                    selectedY = dataset.headers.firstOrNull() ?: ""
+                    selectedXs = dataset.headers.drop(1).toSet()
+                }
+            } catch (e: Exception) {
+                fetchError = "Failed to fetch cloud data: ${e.message}"
+                if (datasets.isEmpty()) {
+                    dataset = parseCsv("Card Education (Offline Fallback)", SampleData.cardCsv)
+                    selectedY = dataset.headers.firstOrNull() ?: ""
+                    selectedXs = dataset.headers.drop(1).toSet()
+                }
+            } finally {
+                isLoadingData = false
+            }
+        }
+    }
+    
     // Fetch live data on mount
     LaunchedEffect(Unit) {
-        try {
-            val records = client.getRecords("datasets")
-            if (records.items.isNotEmpty()) {
-                val item = records.items.first()
-                val name = item["name"]?.toString()?.removeSurrounding("\"") ?: "Unknown Dataset"
-                
-                // Parse headers from JSON array
-                val headersElement = item["headers"]
-                val headers = if (headersElement is kotlinx.serialization.json.JsonArray) {
-                    headersElement.map { it.toString().removeSurrounding("\"") }
-                } else {
-                    emptyList()
-                }
+        refreshDatasets()
+    }
 
-                // Parse rows from JSON 2D array
-                val rowsElement = item["rows"]
-                val rows = if (rowsElement is kotlinx.serialization.json.JsonArray) {
-                    rowsElement.mapNotNull { rowElem ->
-                        if (rowElem is kotlinx.serialization.json.JsonArray) {
-                            rowElem.map { it.toString().toDouble() }
-                        } else null
+    if (showUploadDialog) {
+        AlertDialog(
+            onDismissRequest = { showUploadDialog = false },
+            title = { Text("Upload New Dataset") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = uploadName,
+                        onValueChange = { uploadName = it },
+                        label = { Text("Dataset Name") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = uploadCsv,
+                        onValueChange = { uploadCsv = it },
+                        label = { Text("Paste CSV Data Here") },
+                        modifier = Modifier.fillMaxWidth().height(200.dp)
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    enabled = !isUploading && uploadName.isNotEmpty() && uploadCsv.isNotEmpty(),
+                    onClick = {
+                        isUploading = true
+                        coroutineScope.launch {
+                            try {
+                                val parsed = parseCsv(uploadName, uploadCsv)
+                                val dataMap = mapOf(
+                                    "name" to parsed.name,
+                                    "headers" to parsed.headers,
+                                    "rows" to parsed.rows
+                                )
+                                client.createRecord("datasets", dataMap)
+                                showUploadDialog = false
+                                uploadName = ""
+                                uploadCsv = ""
+                                refreshDatasets()
+                            } catch (e: Exception) {
+                                fetchError = e.message ?: "Upload failed"
+                            } finally {
+                                isUploading = false
+                            }
+                        }
                     }
-                } else {
-                    emptyList()
-                }
-
-                dataset = ParsedDataset(name, headers, rows)
-                selectedY = headers.firstOrNull() ?: ""
-                selectedXs = headers.drop(1).toSet()
-            } else {
-                fetchError = "No datasets found in PocketBase!"
+                ) { Text(if (isUploading) "Uploading..." else "Save to Cloud") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showUploadDialog = false }) { Text("Cancel") }
             }
-        } catch (e: Exception) {
-            fetchError = "Failed to fetch cloud data: ${e.message}"
-            // Fallback to offline local CSV
-            dataset = parseCsv("Card Education (Offline Fallback)", SampleData.cardCsv)
-            selectedY = dataset.headers.firstOrNull() ?: ""
-            selectedXs = dataset.headers.drop(1).toSet()
-        } finally {
-            isLoadingData = false
-        }
+        )
     }
 
     Column(
@@ -220,7 +286,36 @@ fun DashboardScreen(client: PocketBaseClient, onLogout: () -> Unit) {
                 modifier = Modifier.weight(1f).fillMaxHeight()
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Dataset: ${dataset.name}", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Dataset: ${dataset.name}", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                        Button(onClick = { showUploadDialog = true }) {
+                            Text("Upload Data")
+                        }
+                    }
+                    if (datasets.size > 1) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            datasets.forEach { ds ->
+                                OutlinedButton(
+                                    onClick = {
+                                        dataset = ds
+                                        selectedY = ds.headers.firstOrNull() ?: ""
+                                        selectedXs = ds.headers.drop(1).toSet()
+                                    },
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        backgroundColor = if (dataset.name == ds.name) MaterialTheme.colors.primary.copy(alpha = 0.2f) else Color.Transparent
+                                    )
+                                ) {
+                                    Text(ds.name)
+                                }
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
                     Text("Select variables for the model below:", fontSize = 14.sp, color = Color.Gray)
                     Spacer(modifier = Modifier.height(16.dp))
 
