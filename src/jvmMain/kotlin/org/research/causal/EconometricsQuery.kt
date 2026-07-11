@@ -1,8 +1,6 @@
 package org.research.causal
 
 import com.expediagroup.graphql.server.operations.Query
-import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics
-import org.apache.commons.math3.stat.regression.OLSMultipleLinearRegression
 import java.io.File
 import kotlin.math.sqrt
 
@@ -81,28 +79,27 @@ class EconometricsQuery : Query {
     }
 
     private fun runOLS(observations: List<DoubleArray>, yData: DoubleArray, request: RegressionRequest): RegressionResult {
-        val ols = OLSMultipleLinearRegression()
         val olsX = observations.map { obs ->
-            val x = mutableListOf<Double>()
+            val x = mutableListOf(1.0) // Intercept
             for (i in request.exogVars.indices) x.add(obs[i + 1])
             x.toDoubleArray()
         }.toTypedArray()
 
-        ols.newSampleData(yData, olsX)
-        val beta = ols.estimateRegressionParameters()
-        val se = ols.estimateRegressionParametersStandardErrors()
+        val ols = OLS(yData, olsX)
+        val result = ols.estimate()
 
         val coeffs = mutableListOf<RegressionCoefficient>()
-        coeffs.add(RegressionCoefficient("Intercept", beta[0], se[0], beta[0]/se[0]))
+        coeffs.add(RegressionCoefficient("Intercept", result.beta[0], result.standardErrors[0], result.beta[0]/result.standardErrors[0]))
         request.exogVars.forEachIndexed { i, v ->
-            coeffs.add(RegressionCoefficient(v, beta[i + 1], se[i + 1], beta[i + 1]/se[i + 1]))
+            val idx = i + 1
+            coeffs.add(RegressionCoefficient(v, result.beta[idx], result.standardErrors[idx], result.beta[idx]/result.standardErrors[idx]))
         }
 
         return RegressionResult(
             estimator = "OLS",
             targetVariable = request.yVar,
             coefficients = coeffs,
-            rSquared = ols.calculateRSquared(),
+            rSquared = result.rSquared,
             nobs = yData.size
         )
     }
@@ -112,15 +109,16 @@ class EconometricsQuery : Query {
         val ivDataIdx = targetVarIdxInObs + 1
         val endogData = observations.map { it[targetVarIdxInObs] }.toDoubleArray()
 
-        val stage1 = OLSMultipleLinearRegression()
         val zData = observations.map { obs ->
-            val z = mutableListOf<Double>()
+            val z = mutableListOf(1.0) // Intercept
             for (i in request.exogVars.indices) z.add(obs[i + 1])
             z.add(obs[ivDataIdx])
             z.toDoubleArray()
         }.toTypedArray()
-        stage1.newSampleData(endogData, zData)
-        val s1Beta = stage1.estimateRegressionParameters()
+        
+        val stage1 = OLS(endogData, zData)
+        val s1Result = stage1.estimate()
+        val s1Beta = s1Result.beta
 
         val endogHat = observations.mapIndexed { i, obs ->
             var fitted = s1Beta[0]
@@ -131,30 +129,29 @@ class EconometricsQuery : Query {
             fitted
         }.toDoubleArray()
 
-        val stage2 = OLSMultipleLinearRegression()
         val stage2X = observations.mapIndexed { i, obs ->
-            val x = mutableListOf<Double>()
+            val x = mutableListOf(1.0) // Intercept
             for (j in request.exogVars.indices) x.add(obs[j + 1])
             x.add(endogHat[i])
             x.toDoubleArray()
         }.toTypedArray()
 
-        stage2.newSampleData(yData, stage2X)
-        val beta = stage2.estimateRegressionParameters()
-        val se = stage2.estimateRegressionParametersStandardErrors()
+        val stage2 = OLS(yData, stage2X)
+        val result = stage2.estimate()
 
         val coeffs = mutableListOf<RegressionCoefficient>()
-        coeffs.add(RegressionCoefficient("Intercept", beta[0], se[0], beta[0]/se[0]))
+        coeffs.add(RegressionCoefficient("Intercept", result.beta[0], result.standardErrors[0], result.beta[0]/result.standardErrors[0]))
         request.exogVars.forEachIndexed { i, v ->
-            coeffs.add(RegressionCoefficient(v, beta[i + 1], se[i + 1], beta[i + 1]/se[i + 1]))
+            val idx = i + 1
+            coeffs.add(RegressionCoefficient(v, result.beta[idx], result.standardErrors[idx], result.beta[idx]/result.standardErrors[idx]))
         }
-        coeffs.add(RegressionCoefficient(request.endogVar!!, beta.last(), se.last(), beta.last()/se.last()))
+        coeffs.add(RegressionCoefficient(request.endogVar!!, result.beta.last(), result.standardErrors.last(), result.beta.last()/result.standardErrors.last()))
 
         return RegressionResult(
             estimator = "IV_2SLS",
             targetVariable = request.yVar,
             coefficients = coeffs,
-            rSquared = stage2.calculateRSquared(),
+            rSquared = result.rSquared,
             nobs = yData.size
         )
     }

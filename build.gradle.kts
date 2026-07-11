@@ -64,7 +64,6 @@ kotlin {
         val jvmMain by getting {
             dependencies {
                 implementation(compose.desktop.currentOs)
-                implementation("org.apache.commons:commons-math3:3.6.1")
                 implementation("com.github.ajalt.mordant:mordant:3.0.0")
                 implementation("org.jetbrains.lets-plot:lets-plot-kotlin:4.9.3")
                 implementation("org.slf4j:slf4j-simple:2.0.13")

@@ -4,7 +4,6 @@ import com.github.ajalt.mordant.rendering.TextColors.*
 import com.github.ajalt.mordant.rendering.TextStyles.*
 import com.github.ajalt.mordant.table.table
 import com.github.ajalt.mordant.terminal.Terminal
-import org.apache.commons.math3.stat.regression.OLSMultipleLinearRegression
 import java.io.File
 
 data class DatasetConfig(
@@ -90,17 +89,17 @@ fun main() {
                 val targetBetaIdx: Int = if (config.endogVar != null) config.exogVars.size + 1 else 1
 
                 // 1. OLS
-                val ols: OLSMultipleLinearRegression = OLSMultipleLinearRegression()
                 val olsX: Array<DoubleArray> = observations.map { obs: DoubleArray ->
-                    val x: MutableList<Double> = mutableListOf<Double>()
+                    val x: MutableList<Double> = mutableListOf(1.0)
                     for (i: Int in config.exogVars.indices) x.add(obs[i + 1])
                     if (config.endogVar != null) x.add(obs[targetVarIdxInObs])
                     x.toDoubleArray()
                 }.toTypedArray()
                 
-                ols.newSampleData(yData, olsX)
-                val olsBeta: DoubleArray = ols.estimateRegressionParameters()
-                val olsSe: DoubleArray = ols.estimateRegressionParametersStandardErrors()
+                val ols = OLS(yData, olsX)
+                val olsResult = ols.estimate()
+                val olsBeta: DoubleArray = olsResult.beta
+                val olsSe: DoubleArray = olsResult.standardErrors
                 val olsT: Double = olsBeta[targetBetaIdx] / olsSe[targetBetaIdx]
 
                 row {
@@ -117,16 +116,15 @@ fun main() {
                     val ivDataIdx: Int = 1 + config.exogVars.size + 1
 
                     // Stage 1: Regress endogenous on instrument + exogenous
-                    val stage1: OLSMultipleLinearRegression = OLSMultipleLinearRegression()
                     val zData: Array<DoubleArray> = observations.map { obs: DoubleArray ->
-                        val z: MutableList<Double> = mutableListOf<Double>()
+                        val z: MutableList<Double> = mutableListOf(1.0)
                         for (i: Int in config.exogVars.indices) z.add(obs[i + 1])
                         z.add(obs[ivDataIdx]) // iv is last
                         z.toDoubleArray()
                     }.toTypedArray()
                     
-                    stage1.newSampleData(endogData, zData)
-                    val s1Beta: DoubleArray = stage1.estimateRegressionParameters()
+                    val stage1 = OLS(endogData, zData)
+                    val s1Beta: DoubleArray = stage1.estimate().beta
 
                     // Predict fitted values
                     val endogHat: DoubleArray = observations.mapIndexed { _, obs: DoubleArray ->
@@ -139,18 +137,18 @@ fun main() {
                     }.toDoubleArray()
 
                     // Stage 2: Regress Y on predicted endogenous + exogenous
-                    val stage2: OLSMultipleLinearRegression = OLSMultipleLinearRegression()
                     val stage2X: Array<DoubleArray> = observations.mapIndexed { i: Int, obs: DoubleArray ->
-                        val x: MutableList<Double> = mutableListOf<Double>()
+                        val x: MutableList<Double> = mutableListOf(1.0)
                         for (j: Int in config.exogVars.indices) x.add(obs[j + 1])
                         x.add(endogHat[i])
                         x.toDoubleArray()
                     }.toTypedArray()
 
-                    stage2.newSampleData(yData, stage2X)
-                    val ivBeta: DoubleArray = stage2.estimateRegressionParameters()
-                    val ivSe: DoubleArray = stage2.estimateRegressionParametersStandardErrors()
-                    val targetIvIdx: Int = stage2X[0].size // Since endogHat is added last, its param index is last
+                    val stage2 = OLS(yData, stage2X)
+                    val stage2Result = stage2.estimate()
+                    val ivBeta: DoubleArray = stage2Result.beta
+                    val ivSe: DoubleArray = stage2Result.standardErrors
+                    val targetIvIdx: Int = stage2X[0].size - 1 // Since endogHat is added last, its param index is last
                     val ivT: Double = ivBeta[targetIvIdx] / ivSe[targetIvIdx]
 
                     row {
