@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/brentmzey/multiplatform-econometrics/compare/v1.1.0...v1.2.0) (2026-07-11)
+
+
+### Features
+
+* Add Compose UI with PocketBase Login and Math Dashboard, plus robust Math unit tests ([bcdf246](https://github.com/brentmzey/multiplatform-econometrics/commit/bcdf24678534d364a16efd86b73425d736341e25))
+
 # [1.1.0](https://github.com/brentmzey/multiplatform-econometrics/compare/v1.0.0...v1.1.0) (2026-07-11)
 
 
