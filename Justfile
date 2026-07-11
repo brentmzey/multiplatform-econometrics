@@ -37,6 +37,10 @@ run-server:
 run-desktop:
     ./gradlew run -DmainClass=org.research.causal.DesktopAppKt
 
+# Run the Kotlin Web Application (Wasm/JS) natively in the browser
+run-web:
+    ./gradlew wasmJsBrowserRun --continuous
+
 # ==========================================
 # 🏗️ Build Targets
 # ==========================================
