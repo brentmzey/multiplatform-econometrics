@@ -1,3 +1,11 @@
+# [1.4.0](https://github.com/brentmzey/multiplatform-econometrics/compare/v1.3.0...v1.4.0) (2026-07-11)
+
+
+### Features
+
+* Wire up PocketHost URL and add TypeScript seed migration ([3771757](https://github.com/brentmzey/multiplatform-econometrics/commit/37717573dfd5c8c78d9c79a2a3c3c6f01afa1e9b))
+* Wire up PocketHost URL and add TypeScript seed migration ([b23f9f7](https://github.com/brentmzey/multiplatform-econometrics/commit/b23f9f705157be62318455f53e9dc6587d42ceac))
+
 # [1.3.0](https://github.com/brentmzey/multiplatform-econometrics/compare/v1.2.0...v1.3.0) (2026-07-11)
 
 
