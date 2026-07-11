@@ -1,3 +1,11 @@
+# [1.1.0](https://github.com/brentmzey/multiplatform-econometrics/compare/v1.0.0...v1.1.0) (2026-07-11)
+
+
+### Features
+
+* Add PocketBase Ktor client for authentication and federated data ([24c1f5d](https://github.com/brentmzey/multiplatform-econometrics/commit/24c1f5d8e38129acb8bcb0ded06875ad475dac6f))
+* Wire Compose UI to shared API client to fetch live data ([96f9caa](https://github.com/brentmzey/multiplatform-econometrics/commit/96f9caa02979b55158b1c7c234efbcfe3f3e8b0f))
+
 # 1.0.0 (2026-07-10)
 
 
