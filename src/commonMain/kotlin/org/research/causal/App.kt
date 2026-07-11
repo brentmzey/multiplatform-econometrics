@@ -20,6 +20,8 @@ sealed class Screen {
 
 @Composable
 fun App() {
+    val client = remember { PocketBaseClient(createDefaultClient()) }
+    
     MaterialTheme(
         colors = darkColors(
             primary = Color(0xFF6200EE),
@@ -33,15 +35,15 @@ fun App() {
 
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colors.background) {
             when (currentScreen) {
-                is Screen.Login -> LoginScreen(onLoginSuccess = { currentScreen = Screen.Dashboard })
-                is Screen.Dashboard -> DashboardScreen(onLogout = { currentScreen = Screen.Login })
+                is Screen.Login -> LoginScreen(client, onLoginSuccess = { currentScreen = Screen.Dashboard })
+                is Screen.Dashboard -> DashboardScreen(client, onLogout = { currentScreen = Screen.Login })
             }
         }
     }
 }
 
 @Composable
-fun LoginScreen(onLoginSuccess: () -> Unit) {
+fun LoginScreen(client: PocketBaseClient, onLoginSuccess: () -> Unit) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
@@ -103,10 +105,10 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                         errorMessage = ""
                         coroutineScope.launch {
                             try {
-                                val client = PocketBaseClient(createDefaultClient())
                                 // We wrap in try-catch. If it's a dummy email we can bypass for demo purposes
                                 if (email == "admin@demo.com") {
-                                    onLoginSuccess() // Bypass for demo
+                                    client.authWithPassword(email, password)
+                                    onLoginSuccess() 
                                 } else {
                                     client.authWithPassword(email, password)
                                     onLoginSuccess()
@@ -136,16 +138,62 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
 }
 
 @Composable
-fun DashboardScreen(onLogout: () -> Unit) {
+fun DashboardScreen(client: PocketBaseClient, onLogout: () -> Unit) {
     var regressionOutput by remember { mutableStateOf<OLSResult?>(null) }
     var isCalculating by remember { mutableStateOf(false) }
+    var isLoadingData by remember { mutableStateOf(true) }
+    var fetchError by remember { mutableStateOf("") }
+    val coroutineScope = rememberCoroutineScope()
     
     // Dataset State
-    var dataset by remember { mutableStateOf(parseCsv("Card Education Sample", SampleData.cardCsv)) }
+    var dataset by remember { mutableStateOf(parseCsv("Loading...", "")) }
+    var selectedY by remember { mutableStateOf("") }
+    var selectedXs by remember { mutableStateOf(emptySet<String>()) }
     
-    // Variable Selection State
-    var selectedY by remember { mutableStateOf(dataset.headers.firstOrNull() ?: "") }
-    var selectedXs by remember { mutableStateOf(dataset.headers.drop(1).toSet()) }
+    // Fetch live data on mount
+    LaunchedEffect(Unit) {
+        try {
+            val records = client.getRecords("datasets")
+            if (records.items.isNotEmpty()) {
+                val item = records.items.first()
+                val name = item["name"]?.toString()?.removeSurrounding("\"") ?: "Unknown Dataset"
+                
+                // Parse headers from JSON array
+                val headersElement = item["headers"]
+                val headers = if (headersElement is kotlinx.serialization.json.JsonArray) {
+                    headersElement.map { it.toString().removeSurrounding("\"") }
+                } else {
+                    emptyList()
+                }
+
+                // Parse rows from JSON 2D array
+                val rowsElement = item["rows"]
+                val rows = if (rowsElement is kotlinx.serialization.json.JsonArray) {
+                    rowsElement.mapNotNull { rowElem ->
+                        if (rowElem is kotlinx.serialization.json.JsonArray) {
+                            rowElem.map { it.toString().toDouble() }
+                        } else null
+                    }
+                } else {
+                    emptyList()
+                }
+
+                dataset = ParsedDataset(name, headers, rows)
+                selectedY = headers.firstOrNull() ?: ""
+                selectedXs = headers.drop(1).toSet()
+            } else {
+                fetchError = "No datasets found in PocketBase!"
+            }
+        } catch (e: Exception) {
+            fetchError = "Failed to fetch cloud data: ${e.message}"
+            // Fallback to offline local CSV
+            dataset = parseCsv("Card Education (Offline Fallback)", SampleData.cardCsv)
+            selectedY = dataset.headers.firstOrNull() ?: ""
+            selectedXs = dataset.headers.drop(1).toSet()
+        } finally {
+            isLoadingData = false
+        }
+    }
 
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
