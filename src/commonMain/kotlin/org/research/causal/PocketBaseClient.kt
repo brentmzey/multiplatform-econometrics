@@ -63,6 +63,58 @@ class PocketBaseClient(
         
         return response.body()
     }
+
+    suspend fun createRecord(collectionName: String, data: Map<String, Any>): JsonObject {
+        val response = client.post("$baseUrl/api/collections/$collectionName/records") {
+            contentType(ContentType.Application.Json)
+            if (authToken != null) {
+                header(HttpHeaders.Authorization, authToken)
+            }
+            // Use Gson or raw string for Ktor serialization. 
+            // Ktor's Kotlinx-serialization needs explicit handling for Map<String, Any>, 
+            // so we'll build a raw JSON string for simplicity.
+            val jsonBody = buildString {
+                append("{")
+                val entries = data.entries.toList()
+                for (i in entries.indices) {
+                    val entry = entries[i]
+                    append("\"${entry.key}\":")
+                    when (val v = entry.value) {
+                        is String -> append("\"${v.replace("\"", "\\\"")}\"")
+                        is List<*> -> {
+                            append("[")
+                            val list = v.toList()
+                            for (j in list.indices) {
+                                val item = list[j]
+                                if (item is String) append("\"${item.replace("\"", "\\\"")}\"")
+                                else if (item is List<*>) {
+                                    append("[")
+                                    val sublist = item.toList()
+                                    for (k in sublist.indices) {
+                                        append(sublist[k].toString())
+                                        if (k < sublist.size - 1) append(",")
+                                    }
+                                    append("]")
+                                }
+                                else append(item.toString())
+                                if (j < list.size - 1) append(",")
+                            }
+                            append("]")
+                        }
+                        else -> append(v.toString())
+                    }
+                    if (i < entries.size - 1) append(",")
+                }
+                append("}")
+            }
+            setBody(jsonBody)
+        }
+
+        if (!response.status.isSuccess()) {
+            throw Exception("Failed to create record in $collectionName: ${response.status.description}")
+        }
+        return response.body()
+    }
     
     fun logout() {
         this.authToken = null
