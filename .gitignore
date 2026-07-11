@@ -10,3 +10,4 @@ build/
 
 .gradle/
 .kotlin/
+migrations/node_modules/

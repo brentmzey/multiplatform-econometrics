@@ -26,7 +26,7 @@ data class PocketBaseRecordList(
 
 class PocketBaseClient(
     private val client: HttpClient,
-    private val baseUrl: String = "https://your-instance.pockethost.io" // TODO: Replace with real URL
+    private val baseUrl: String = "https://econometrics-broker.pockethost.io" 
 ) {
     private var authToken: String? = null
 
