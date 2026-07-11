@@ -1,3 +1,11 @@
+# [1.5.0](https://github.com/brentmzey/multiplatform-econometrics/compare/v1.4.0...v1.5.0) (2026-07-11)
+
+
+### Features
+
+* Add CSV upload functionality and dynamic dataset selector to Dashboard ([3000a41](https://github.com/brentmzey/multiplatform-econometrics/commit/3000a4100faffdffe01a1cd2b8cdf5fe6c051ecc))
+* Add CSV upload functionality and dynamic dataset selector to Dashboard ([abb9fd9](https://github.com/brentmzey/multiplatform-econometrics/commit/abb9fd981ae1ae9e00bb0c51fb1bb2d7390f9918))
+
 # [1.4.0](https://github.com/brentmzey/multiplatform-econometrics/compare/v1.3.0...v1.4.0) (2026-07-11)
 
 
