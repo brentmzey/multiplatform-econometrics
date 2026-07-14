@@ -1,3 +1,18 @@
+# [1.6.0](https://github.com/brentmzey/multiplatform-econometrics/compare/v1.5.0...v1.6.0) (2026-07-14)
+
+
+### Bug Fixes
+
+* **data:** Update scraper to read local CSV to bypass Cloudflare bot protection ([0a072d4](https://github.com/brentmzey/multiplatform-econometrics/commit/0a072d4f4da3a8e544ac73bc1ded6dcbc87c6ed4))
+* **data:** Update scraper to use geo_level instead of level ([d1b100c](https://github.com/brentmzey/multiplatform-econometrics/commit/d1b100c0be63fbebb5251ea37d1330ced2aa5001))
+* **db:** Remove custom indices from migration script for PocketBase 0.22 compatibility ([88781e6](https://github.com/brentmzey/multiplatform-econometrics/commit/88781e6646e462b0e33911fd15f3ea0c95da241c))
+
+
+### Features
+
+* **data:** Add FiveThirtyEight polling data scraper and normalized PocketHost ingestion script ([a1ba574](https://github.com/brentmzey/multiplatform-econometrics/commit/a1ba574b8535fc905fbf4297526a3f67bf6d81c8))
+* **db:** Add normalized polling schema with xref relations and DB indexing ([a9aa00f](https://github.com/brentmzey/multiplatform-econometrics/commit/a9aa00f684b5afd8d2bd1911d137b2b6ca8cdc0b))
+
 # [1.5.0](https://github.com/brentmzey/multiplatform-econometrics/compare/v1.4.0...v1.5.0) (2026-07-11)
 
 
