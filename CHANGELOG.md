@@ -1,3 +1,11 @@
+## [1.6.1](https://github.com/brentmzey/multiplatform-econometrics/compare/v1.6.0...v1.6.1) (2026-07-14)
+
+
+### Bug Fixes
+
+* **db:** Update schema migration for PocketBase v0.22+ to use fields instead of schema ([e7cef2a](https://github.com/brentmzey/multiplatform-econometrics/commit/e7cef2a898dba2af17bb2e398064627b6eb2082e))
+* **db:** Update schema migration for PocketBase v0.22+ to use fields instead of schema ([c087319](https://github.com/brentmzey/multiplatform-econometrics/commit/c0873193f534a1e6e345f25d7cae0238c0c64fce))
+
 # [1.6.0](https://github.com/brentmzey/multiplatform-econometrics/compare/v1.5.0...v1.6.0) (2026-07-14)
 
 
