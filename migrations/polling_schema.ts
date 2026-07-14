@@ -50,7 +50,7 @@ async function runMigration() {
         name: 'geographies',
         type: 'base',
         fields: [
-            { name: 'geo_level', type: 'select', options: { maxSelect: 1, values: ["national", "state", "district", "local"] }, required: true },
+            { name: 'geo_level', type: 'select', maxSelect: 1, values: ["national", "state", "district", "local"], required: true },
             { name: 'name', type: 'text', required: true }
         ]
     });
@@ -87,9 +87,9 @@ async function runMigration() {
         name: 'poll_results',
         type: 'base',
         fields: [
-            { name: 'poll_id', type: 'relation', required: true, options: { collectionId: pollId, cascadeDelete: true } },
-            { name: 'geography_id', type: 'relation', required: true, options: { collectionId: geoId, cascadeDelete: false } },
-            { name: 'candidate_id', type: 'relation', required: true, options: { collectionId: candidateId, cascadeDelete: false } },
+            { name: 'poll_id', type: 'relation', required: true, collectionId: pollId, cascadeDelete: true },
+            { name: 'geography_id', type: 'relation', required: true, collectionId: geoId, cascadeDelete: false },
+            { name: 'candidate_id', type: 'relation', required: true, collectionId: candidateId, cascadeDelete: false },
             { name: 'pct', type: 'number', required: true }
         ]
     });
