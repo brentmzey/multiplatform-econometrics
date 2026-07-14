@@ -49,10 +49,9 @@ async function runMigration() {
         name: 'geographies',
         type: 'base',
         schema: [
-            { name: 'level', type: 'select', options: { maxSelect: 1, values: ["national", "state", "district", "local"] }, required: true },
+            { name: 'geo_level', type: 'select', options: { maxSelect: 1, values: ["national", "state", "district", "local"] }, required: true },
             { name: 'name', type: 'text', required: true }
-        ],
-        indexes: ["CREATE UNIQUE INDEX idx_geography_name ON geographies (level, name)"]
+        ]
     });
 
     // Creating candidates
@@ -63,8 +62,7 @@ async function runMigration() {
         schema: [
             { name: 'name', type: 'text', required: true },
             { name: 'party', type: 'text' }
-        ],
-        indexes: ["CREATE UNIQUE INDEX idx_candidate_name ON candidates (name)"]
+        ]
     });
 
     // Creating polls
@@ -79,8 +77,7 @@ async function runMigration() {
             { name: 'sample_size', type: 'number' },
             { name: 'population', type: 'text' }, // RV, LV, A
             { name: 'methodology', type: 'text' }
-        ],
-        indexes: ["CREATE INDEX idx_poll_dates ON polls (start_date, end_date)"]
+        ]
     });
 
     // Creating poll_results (xref table)
@@ -93,11 +90,6 @@ async function runMigration() {
             { name: 'geography_id', type: 'relation', required: true, options: { collectionId: geoId, cascadeDelete: false } },
             { name: 'candidate_id', type: 'relation', required: true, options: { collectionId: candidateId, cascadeDelete: false } },
             { name: 'pct', type: 'number', required: true }
-        ],
-        indexes: [
-            "CREATE INDEX idx_result_poll ON poll_results (poll_id)",
-            "CREATE INDEX idx_result_geo ON poll_results (geography_id)",
-            "CREATE INDEX idx_result_candidate ON poll_results (candidate_id)"
         ]
     });
 
