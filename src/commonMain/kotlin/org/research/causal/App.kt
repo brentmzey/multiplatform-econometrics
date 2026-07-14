@@ -181,6 +181,7 @@ fun LoginScreen(client: PocketBaseClient, onLoginSuccess: () -> Unit) {
 fun DashboardScreen(client: PocketBaseClient, onLogout: () -> Unit) {
     var polls by remember { mutableStateOf<List<PollData>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+    var searchQuery by remember { mutableStateOf("") }
     val coroutineScope = rememberCoroutineScope()
 
     fun loadData() {
@@ -247,6 +248,19 @@ fun DashboardScreen(client: PocketBaseClient, onLogout: () -> Unit) {
         loadData()
     }
 
+    // Computed property for filtered polls
+    val filteredPolls = remember(polls, searchQuery) {
+        if (searchQuery.isBlank()) {
+            polls
+        } else {
+            polls.filter { poll ->
+                poll.geography.contains(searchQuery, ignoreCase = true) ||
+                poll.pollster.contains(searchQuery, ignoreCase = true) ||
+                poll.results.any { it.candidateName.contains(searchQuery, ignoreCase = true) }
+            }
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -269,6 +283,22 @@ fun DashboardScreen(client: PocketBaseClient, onLogout: () -> Unit) {
                 }
             }
         )
+        
+        // Filter / Search Bar
+        Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp)) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("Filter by State, Pollster, or Candidate...") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                singleLine = true,
+                colors = TextFieldDefaults.outlinedTextFieldColors(
+                    backgroundColor = MaterialTheme.colors.surface,
+                    unfocusedBorderColor = Color.Transparent
+                )
+            )
+        }
 
         // Main Content
         if (isLoading && polls.isEmpty()) {
@@ -277,11 +307,11 @@ fun DashboardScreen(client: PocketBaseClient, onLogout: () -> Unit) {
             }
         } else {
             LazyColumn(
-                contentPadding = PaddingValues(24.dp),
+                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
-                items(polls) { poll ->
+                items(filteredPolls) { poll ->
                     PollCard(poll)
                 }
             }
