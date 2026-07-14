@@ -53,6 +53,14 @@ async function run() {
 
     let totalInserted = 0;
 
+    // In-memory caches to reduce API calls and avoid 429 Rate Limits
+    const geoCache = new Map<string, string>();
+    const candCache = new Map<string, string>();
+    const pollCache = new Map<string, string>();
+
+    // Helper sleep function to pace requests
+    const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
     for (const target of targets) {
         console.log(`\n2. Fetching NYT ${target.name} Polls...`);
         const res = await fetch(target.url);
@@ -66,69 +74,83 @@ async function run() {
         console.log(`✅ Fetched and parsed ${records.length} ${target.name} polls.`);
 
         console.log(`3. Pushing ${target.name} Data to PocketHost...`);
-        // For demonstration, inserting first 20 records of each type
-        const limit = Math.min(20, records.length);
+        // We will push 50 records to demonstrate since we are caching now
+        const limit = Math.min(50, records.length);
         
         for (let i = 0; i < limit; i++) {
             const r = records[i];
             
-            // Resolve Geography
+            // 1. Resolve Geography
             const state = r.state || "US";
-            let geoId = "";
-            try {
-                const existingGeo = await pb.collection('geographies').getFirstListItem(`name="${state}"`);
-                geoId = existingGeo.id;
-            } catch {
-                const geoLevel = state === "US" ? "national" : "state";
-                const newGeo = await pb.collection('geographies').create({ name: state, geo_level: geoLevel });
-                geoId = newGeo.id;
+            let geoId = geoCache.get(state);
+            if (!geoId) {
+                try {
+                    const existingGeo = await pb.collection('geographies').getFirstListItem(`name="${state}"`);
+                    geoId = existingGeo.id;
+                } catch {
+                    const geoLevel = state === "US" ? "national" : "state";
+                    const newGeo = await pb.collection('geographies').create({ name: state, geo_level: geoLevel });
+                    geoId = newGeo.id;
+                }
+                if (geoId) geoCache.set(state, geoId);
             }
 
-            // Resolve Candidate
+            // 2. Resolve Candidate
             const candName = r.candidate_name || r.answer || "Generic Candidate";
             const party = r.party || "Unknown";
-            let candId = "";
-            try {
-                const existingCand = await pb.collection('candidates').getFirstListItem(`name="${candName}"`);
-                candId = existingCand.id;
-            } catch {
-                const newCand = await pb.collection('candidates').create({ name: candName, party: party });
-                candId = newCand.id;
+            const candKey = `${candName}-${party}`;
+            let candId = candCache.get(candKey);
+            if (!candId) {
+                try {
+                    const existingCand = await pb.collection('candidates').getFirstListItem(`name="${candName}"`);
+                    candId = existingCand.id;
+                } catch {
+                    const newCand = await pb.collection('candidates').create({ name: candName, party: party });
+                    candId = newCand.id;
+                }
+                if (candId) candCache.set(candKey, candId);
             }
 
-            // Resolve Poll
+            // 3. Resolve Poll
             const pollster = r.pollster || "Unknown Pollster";
-            let pollId = "";
-            try {
-                const existingPoll = await pb.collection('polls').getFirstListItem(`pollster="${pollster}" && start_date="${r.start_date}"`);
-                pollId = existingPoll.id;
-            } catch {
-                let pSize = parseInt(r.sample_size || "0");
-                if (isNaN(pSize)) pSize = 0;
+            const pollKey = `${pollster}-${r.start_date}`;
+            let pollId = pollCache.get(pollKey);
+            if (!pollId) {
+                try {
+                    const existingPoll = await pb.collection('polls').getFirstListItem(`pollster="${pollster}" && start_date="${r.start_date}"`);
+                    pollId = existingPoll.id;
+                } catch {
+                    let pSize = parseInt(r.sample_size || "0");
+                    if (isNaN(pSize)) pSize = 0;
 
-                const newPoll = await pb.collection('polls').create({
-                    pollster: pollster,
-                    start_date: new Date(r.start_date || Date.now()).toISOString(),
-                    end_date: new Date(r.end_date || Date.now()).toISOString(),
-                    sample_size: pSize,
-                    population: r.population || "rv"
-                });
-                pollId = newPoll.id;
+                    const newPoll = await pb.collection('polls').create({
+                        pollster: pollster,
+                        start_date: new Date(r.start_date || Date.now()).toISOString(),
+                        end_date: new Date(r.end_date || Date.now()).toISOString(),
+                        sample_size: pSize,
+                        population: r.population || "rv"
+                    });
+                    pollId = newPoll.id;
+                }
+                if (pollId) pollCache.set(pollKey, pollId);
             }
 
-            // Insert Result
+            // 4. Insert Result
             let pct = parseFloat(r.pct || "0");
             if (isNaN(pct)) pct = 0;
 
             await pb.collection('poll_results').create({
-                poll_id: pollId,
-                geography_id: geoId,
-                candidate_id: candId,
+                poll_id: pollId as string,
+                geography_id: geoId as string,
+                candidate_id: candId as string,
                 pct: pct
             });
 
             totalInserted++;
             process.stdout.write(`\rInserted ${i + 1}/${limit} ${target.name} records...`);
+            
+            // Sleep slightly to respect PocketHost rate limits (prevent 429)
+            await sleep(100);
         }
         console.log(`\n✅ Finished batch for ${target.name}.`);
     }
