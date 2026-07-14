@@ -68,17 +68,17 @@ async function runScraper() {
         
         // --- 1. Geography ---
         const stateName = row.state ? row.state : "National";
-        const level = stateName === "National" ? "national" : "state";
-        const geoKey = `${level}-${stateName}`;
+        const geoLevel = stateName === "National" ? "national" : "state";
+        const geoKey = `${geoLevel}-${stateName}`;
         
         let geoId = geoCache.get(geoKey);
         if (!geoId) {
             try {
                 // Try to find first
-                const existingGeo = await pb.collections.getOne('geographies', { filter: `level="${level}" && name="${stateName}"` });
+                const existingGeo = await pb.collections.getOne('geographies', { filter: `geo_level="${geoLevel}" && name="${stateName}"` });
                 geoId = existingGeo.id;
             } catch {
-                const newGeo = await pb.collections.create('geographies', { level, name: stateName });
+                const newGeo = await pb.collections.create('geographies', { geo_level: geoLevel, name: stateName });
                 geoId = newGeo.id;
             }
             geoCache.set(geoKey, geoId);
