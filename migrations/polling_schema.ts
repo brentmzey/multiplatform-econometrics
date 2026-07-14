@@ -1,7 +1,7 @@
 import PocketBase from 'pocketbase';
 import * as readline from 'readline';
 
-const pb = new PocketBase('https://econometrics-broker.pockethost.io');
+const pb = new PocketBase('https://polling-data.pockethost.io');
 
 const rl = readline.createInterface({
     input: process.stdin,
