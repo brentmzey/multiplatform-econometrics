@@ -1,3 +1,11 @@
+## [1.6.2](https://github.com/brentmzey/multiplatform-econometrics/compare/v1.6.1...v1.6.2) (2026-07-14)
+
+
+### Bug Fixes
+
+* **db:** Flatten options in schema for PocketBase v0.23 compatibility ([e3ae8f5](https://github.com/brentmzey/multiplatform-econometrics/commit/e3ae8f5fb7d6a8df76afa662fffee8497101ce77))
+* **db:** Flatten options in schema for PocketBase v0.23 compatibility ([e4d3f54](https://github.com/brentmzey/multiplatform-econometrics/commit/e4d3f54275bded5833b1de2cf0d57bb7f56ef614))
+
 ## [1.6.1](https://github.com/brentmzey/multiplatform-econometrics/compare/v1.6.0...v1.6.1) (2026-07-14)
 
 
