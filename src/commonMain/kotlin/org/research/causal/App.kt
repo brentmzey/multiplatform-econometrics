@@ -1,42 +1,79 @@
 package org.research.causal
 
+import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 sealed class Screen {
     object Login : Screen()
     object Dashboard : Screen()
 }
 
+// Data models for UI
+data class PollData(
+    val id: String,
+    val pollster: String,
+    val startDate: String,
+    val geography: String,
+    val results: List<CandidateResult>
+)
+
+data class CandidateResult(
+    val candidateName: String,
+    val party: String,
+    val pct: Double
+)
+
 @Composable
 fun App() {
     val client = remember { PocketBaseClient(createDefaultClient()) }
     
+    // Premium Dark Theme Colors
+    val darkColors = darkColors(
+        primary = Color(0xFF8B5CF6), // Vibrant Purple
+        primaryVariant = Color(0xFF6D28D9),
+        secondary = Color(0xFF10B981), // Emerald
+        background = Color(0xFF0F172A), // Slate 900
+        surface = Color(0xFF1E293B), // Slate 800
+        onPrimary = Color.White,
+        onSecondary = Color.White,
+        onBackground = Color(0xFFF8FAFC),
+        onSurface = Color(0xFFF1F5F9),
+    )
+
     MaterialTheme(
-        colors = darkColors(
-            primary = Color(0xFF6200EE),
-            primaryVariant = Color(0xFF3700B3),
-            secondary = Color(0xFF03DAC6),
-            background = Color(0xFF121212),
-            surface = Color(0xFF1E1E1E),
-        )
+        colors = darkColors,
+        typography = Typography()
     ) {
         var currentScreen by remember { mutableStateOf<Screen>(Screen.Login) }
 
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colors.background) {
-            when (currentScreen) {
-                is Screen.Login -> LoginScreen(client, onLoginSuccess = { currentScreen = Screen.Dashboard })
-                is Screen.Dashboard -> DashboardScreen(client, onLogout = { currentScreen = Screen.Login })
+            Crossfade(targetState = currentScreen) { screen ->
+                when (screen) {
+                    is Screen.Login -> LoginScreen(client, onLoginSuccess = { currentScreen = Screen.Dashboard })
+                    is Screen.Dashboard -> DashboardScreen(client, onLogout = { currentScreen = Screen.Login })
+                }
             }
         }
     }
@@ -50,40 +87,47 @@ fun LoginScreen(client: PocketBaseClient, onLoginSuccess: () -> Unit) {
     var errorMessage by remember { mutableStateOf("") }
     val coroutineScope = rememberCoroutineScope()
 
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(Color(0xFF0F172A), Color(0xFF1E1B4B))
+                )
+            ),
+        contentAlignment = Alignment.Center
     ) {
         Card(
-            shape = RoundedCornerShape(16.dp),
-            elevation = 8.dp,
-            backgroundColor = MaterialTheme.colors.surface,
-            modifier = Modifier.widthIn(max = 400.dp).fillMaxWidth()
+            shape = RoundedCornerShape(24.dp),
+            elevation = 16.dp,
+            backgroundColor = MaterialTheme.colors.surface.copy(alpha = 0.9f),
+            modifier = Modifier.widthIn(max = 400.dp).fillMaxWidth().padding(24.dp)
         ) {
             Column(
                 modifier = Modifier.padding(32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "Econometrics Suite",
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colors.onSurface
+                    text = "NYT Polling Data",
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colors.primary,
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
                 Text(
-                    text = "Sign in to access federated datasets",
-                    fontSize = 14.sp,
-                    color = Color.Gray,
-                    modifier = Modifier.padding(bottom = 24.dp, top = 4.dp)
+                    text = "2026 Midterms Dashboard",
+                    fontSize = 16.sp,
+                    color = Color.LightGray,
+                    modifier = Modifier.padding(bottom = 32.dp)
                 )
 
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it },
-                    label = { Text("Email") },
+                    label = { Text("Admin Email") },
                     modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                    singleLine = true
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp)
                 )
 
                 OutlinedTextField(
@@ -91,12 +135,12 @@ fun LoginScreen(client: PocketBaseClient, onLoginSuccess: () -> Unit) {
                     onValueChange = { password = it },
                     label = { Text("Password") },
                     modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
-                    singleLine = true
-                    // In a real app we'd use PasswordVisualTransformation here
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp)
                 )
 
                 if (errorMessage.isNotEmpty()) {
-                    Text(errorMessage, color = MaterialTheme.colors.error, modifier = Modifier.padding(bottom = 16.dp))
+                    Text(errorMessage, color = Color(0xFFEF4444), modifier = Modifier.padding(bottom = 16.dp))
                 }
 
                 Button(
@@ -105,9 +149,7 @@ fun LoginScreen(client: PocketBaseClient, onLoginSuccess: () -> Unit) {
                         errorMessage = ""
                         coroutineScope.launch {
                             try {
-                                // We wrap in try-catch. If it's a dummy email we can bypass for demo purposes
                                 if (email == "admin@demo.com") {
-                                    // Bypass network for UI tests/demos
                                     onLoginSuccess() 
                                 } else {
                                     client.authWithPassword(email, password)
@@ -120,18 +162,16 @@ fun LoginScreen(client: PocketBaseClient, onLoginSuccess: () -> Unit) {
                             }
                         }
                     },
-                    modifier = Modifier.fillMaxWidth().height(50.dp),
-                    shape = RoundedCornerShape(8.dp)
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(backgroundColor = MaterialTheme.colors.primary)
                 ) {
                     if (isLoading) {
                         CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
                     } else {
-                        Text("LOGIN", fontWeight = FontWeight.Bold)
+                        Text("LOGIN", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     }
                 }
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("Hint: Use admin@demo.com to bypass", color = Color.Gray, fontSize = 12.sp)
             }
         }
     }
@@ -139,299 +179,188 @@ fun LoginScreen(client: PocketBaseClient, onLoginSuccess: () -> Unit) {
 
 @Composable
 fun DashboardScreen(client: PocketBaseClient, onLogout: () -> Unit) {
-    var regressionOutput by remember { mutableStateOf<OLSResult?>(null) }
-    var isCalculating by remember { mutableStateOf(false) }
-    var isLoadingData by remember { mutableStateOf(true) }
-    var fetchError by remember { mutableStateOf("") }
+    var polls by remember { mutableStateOf<List<PollData>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
     val coroutineScope = rememberCoroutineScope()
-    
-    // Dataset State
-    var datasets by remember { mutableStateOf<List<ParsedDataset>>(emptyList()) }
-    var dataset by remember { mutableStateOf(parseCsv("Loading...", "")) }
-    var selectedY by remember { mutableStateOf("") }
-    var selectedXs by remember { mutableStateOf(emptySet<String>()) }
-    
-    // Upload State
-    var showUploadDialog by remember { mutableStateOf(false) }
-    var uploadName by remember { mutableStateOf("") }
-    var uploadCsv by remember { mutableStateOf("") }
-    var isUploading by remember { mutableStateOf(false) }
 
-    fun refreshDatasets() {
-        isLoadingData = true
+    fun loadData() {
+        isLoading = true
         coroutineScope.launch {
             try {
-                val records = client.getRecords("datasets")
-                val parsedList = records.items.mapNotNull { item ->
-                    try {
-                        val name = item["name"]?.toString()?.removeSurrounding("\"") ?: "Unknown Dataset"
-                        val headersElement = item["headers"]
-                        val headers = if (headersElement is kotlinx.serialization.json.JsonArray) {
-                            headersElement.map { it.toString().removeSurrounding("\"") }
-                        } else emptyList()
+                // Fetch recent poll results, expanding relations
+                val response = client.getRecords(
+                    collectionName = "poll_results",
+                    expand = "poll_id,candidate_id,geography_id",
+                    sort = "-created",
+                    perPage = 300
+                )
 
-                        val rowsElement = item["rows"]
-                        val rows = if (rowsElement is kotlinx.serialization.json.JsonArray) {
-                            rowsElement.mapNotNull { rowElem ->
-                                if (rowElem is kotlinx.serialization.json.JsonArray) {
-                                    rowElem.map { it.toString().toDouble() }
-                                } else null
-                            }
-                        } else emptyList()
+                val grouped = mutableMapOf<String, MutableList<CandidateResult>>()
+                val pollInfo = mutableMapOf<String, Triple<String, String, String>>()
+
+                response.items.forEach { item ->
+                    try {
+                        val expand = item["expand"]?.jsonObject ?: return@forEach
+                        val poll = expand["poll_id"]?.jsonObject ?: return@forEach
+                        val cand = expand["candidate_id"]?.jsonObject ?: return@forEach
+                        val geo = expand["geography_id"]?.jsonObject ?: return@forEach
+
+                        val pollId = poll["id"]?.jsonPrimitive?.content ?: ""
+                        val pollster = poll["pollster"]?.jsonPrimitive?.content ?: "Unknown"
+                        val startDate = poll["start_date"]?.jsonPrimitive?.content?.take(10) ?: ""
+                        val geoName = geo["name"]?.jsonPrimitive?.content ?: "US"
                         
-                        ParsedDataset(name, headers, rows)
-                    } catch(e: Exception) { null }
+                        val candName = cand["name"]?.jsonPrimitive?.content ?: "Unknown"
+                        val party = cand["party"]?.jsonPrimitive?.content ?: "Unknown"
+                        val pct = item["pct"]?.jsonPrimitive?.content?.toDoubleOrNull() ?: 0.0
+
+                        if (!grouped.containsKey(pollId)) {
+                            grouped[pollId] = mutableListOf()
+                            pollInfo[pollId] = Triple(pollster, startDate, geoName)
+                        }
+                        grouped[pollId]?.add(CandidateResult(candName, party, pct))
+                    } catch (e: Exception) {
+                        // ignore malformed row
+                    }
                 }
-                
-                datasets = parsedList
-                if (parsedList.isNotEmpty() && dataset.name == "Loading...") {
-                    dataset = parsedList.first()
-                    selectedY = dataset.headers.firstOrNull() ?: ""
-                    selectedXs = dataset.headers.drop(1).toSet()
-                }
+
+                val finalPolls = pollInfo.map { (id, info) ->
+                    PollData(
+                        id = id,
+                        pollster = info.first,
+                        startDate = info.second,
+                        geography = info.third,
+                        results = grouped[id]?.sortedByDescending { it.pct } ?: emptyList()
+                    )
+                }.sortedByDescending { it.startDate }
+
+                polls = finalPolls
             } catch (e: Exception) {
-                fetchError = "Failed to fetch cloud data: ${e.message}"
-                if (datasets.isEmpty()) {
-                    dataset = parseCsv("Card Education (Offline Fallback)", SampleData.cardCsv)
-                    selectedY = dataset.headers.firstOrNull() ?: ""
-                    selectedXs = dataset.headers.drop(1).toSet()
-                }
+                println("Fetch error: ${e.message}")
             } finally {
-                isLoadingData = false
+                isLoading = false
             }
         }
     }
-    
-    // Fetch live data on mount
-    LaunchedEffect(Unit) {
-        refreshDatasets()
-    }
 
-    if (showUploadDialog) {
-        AlertDialog(
-            onDismissRequest = { showUploadDialog = false },
-            title = { Text("Upload New Dataset") },
-            text = {
-                Column {
-                    OutlinedTextField(
-                        value = uploadName,
-                        onValueChange = { uploadName = it },
-                        label = { Text("Dataset Name") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = uploadCsv,
-                        onValueChange = { uploadCsv = it },
-                        label = { Text("Paste CSV Data Here") },
-                        modifier = Modifier.fillMaxWidth().height(200.dp)
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    enabled = !isUploading && uploadName.isNotEmpty() && uploadCsv.isNotEmpty(),
-                    onClick = {
-                        isUploading = true
-                        coroutineScope.launch {
-                            try {
-                                val parsed = parseCsv(uploadName, uploadCsv)
-                                val dataMap = mapOf(
-                                    "name" to parsed.name,
-                                    "headers" to parsed.headers,
-                                    "rows" to parsed.rows
-                                )
-                                client.createRecord("datasets", dataMap)
-                                showUploadDialog = false
-                                uploadName = ""
-                                uploadCsv = ""
-                                refreshDatasets()
-                            } catch (e: Exception) {
-                                fetchError = e.message ?: "Upload failed"
-                            } finally {
-                                isUploading = false
-                            }
-                        }
-                    }
-                ) { Text(if (isUploading) "Uploading..." else "Save to Cloud") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showUploadDialog = false }) { Text("Cancel") }
-            }
-        )
+    LaunchedEffect(Unit) {
+        loadData()
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colors.background)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Econometrics Dashboard", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-            OutlinedButton(onClick = onLogout) {
-                Text("Logout")
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Row(modifier = Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            // LEFT COLUMN: Data Preview and Selection
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                backgroundColor = MaterialTheme.colors.surface,
-                modifier = Modifier.weight(1f).fillMaxHeight()
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Dataset: ${dataset.name}", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-                        Button(onClick = { showUploadDialog = true }) {
-                            Text("Upload Data")
-                        }
-                    }
-                    if (datasets.size > 1) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            datasets.forEach { ds ->
-                                OutlinedButton(
-                                    onClick = {
-                                        dataset = ds
-                                        selectedY = ds.headers.firstOrNull() ?: ""
-                                        selectedXs = ds.headers.drop(1).toSet()
-                                    },
-                                    colors = ButtonDefaults.outlinedButtonColors(
-                                        backgroundColor = if (dataset.name == ds.name) MaterialTheme.colors.primary.copy(alpha = 0.2f) else Color.Transparent
-                                    )
-                                ) {
-                                    Text(ds.name)
-                                }
-                            }
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Select variables for the model below:", fontSize = 14.sp, color = Color.Gray)
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Text("Target Variable (Y):", fontWeight = FontWeight.Bold)
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        dataset.headers.forEach { header ->
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                RadioButton(
-                                    selected = selectedY == header,
-                                    onClick = { 
-                                        selectedY = header
-                                        selectedXs = selectedXs - header 
-                                    }
-                                )
-                                Text(header, fontSize = 14.sp)
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Features (X):", fontWeight = FontWeight.Bold)
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        dataset.headers.forEach { header ->
-                            if (header != selectedY) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Checkbox(
-                                        checked = selectedXs.contains(header),
-                                        onCheckedChange = { checked ->
-                                            if (checked) selectedXs = selectedXs + header
-                                            else selectedXs = selectedXs - header
-                                        }
-                                    )
-                                    Text(header, fontSize = 14.sp)
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Text("Data Preview (Top 10 rows):", fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    // Simple Data Table Preview
-                    Column(modifier = Modifier.fillMaxWidth().background(Color.DarkGray).padding(8.dp)) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            dataset.headers.forEach { h -> Text(h, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f)) }
-                        }
-                        Divider(color = Color.Gray, modifier = Modifier.padding(vertical = 4.dp))
-                        dataset.rows.take(10).forEach { row ->
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                row.forEach { cell -> Text(cell.toString(), modifier = Modifier.weight(1f)) }
-                            }
-                        }
-                    }
+        // App Bar
+        TopAppBar(
+            title = { 
+                Text("2026 Midterms Polling", fontWeight = FontWeight.Bold) 
+            },
+            backgroundColor = MaterialTheme.colors.surface,
+            contentColor = MaterialTheme.colors.onSurface,
+            elevation = 8.dp,
+            actions = {
+                IconButton(onClick = { loadData() }) {
+                    Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                }
+                TextButton(onClick = onLogout) {
+                    Text("Logout", color = MaterialTheme.colors.primary)
                 }
             }
+        )
 
-            // RIGHT COLUMN: Math Execution and Results
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                backgroundColor = MaterialTheme.colors.surface,
-                modifier = Modifier.weight(1f).fillMaxHeight()
+        // Main Content
+        if (isLoading && polls.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = MaterialTheme.colors.primary)
+            }
+        } else {
+            LazyColumn(
+                contentPadding = PaddingValues(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxSize()
             ) {
-                Column(modifier = Modifier.padding(24.dp)) {
-                    Text("Causal Inference Engine", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-                    Text("Run a native Ordinary Least Squares (OLS) regression.", fontSize = 14.sp, color = Color.Gray)
-                    
-                    Spacer(modifier = Modifier.height(24.dp))
+                items(polls) { poll ->
+                    PollCard(poll)
+                }
+            }
+        }
+    }
+}
 
-                    Button(
-                        onClick = {
-                            isCalculating = true
-                            try {
-                                val yIdx = dataset.headers.indexOf(selectedY)
-                                val xIndices = selectedXs.map { dataset.headers.indexOf(it) }
-                                
-                                val yData = dataset.rows.map { it[yIdx] }.toDoubleArray()
-                                val xData = dataset.rows.map { row ->
-                                    val x = mutableListOf(1.0) // Intercept
-                                    xIndices.forEach { idx -> x.add(row[idx]) }
-                                    x.toDoubleArray()
-                                }.toTypedArray()
-                                
-                                val ols = OLS(yData, xData)
-                                regressionOutput = ols.estimate()
-                            } catch (e: Exception) {
-                                // Ignore math errors for now
-                            } finally {
-                                isCalculating = false
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth().height(50.dp),
-                        shape = RoundedCornerShape(8.dp),
-                        enabled = selectedY.isNotEmpty() && selectedXs.isNotEmpty()
+@Composable
+fun PollCard(poll: PollData) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        backgroundColor = MaterialTheme.colors.surface,
+        elevation = 4.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(24.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = poll.pollster,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colors.onSurface
+                )
+                Box(
+                    modifier = Modifier
+                        .background(Color(0xFF334155), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = poll.geography,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+            }
+            
+            Text(
+                text = "Date: ${poll.startDate}",
+                fontSize = 14.sp,
+                color = Color.Gray,
+                modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
+            )
+
+            // Results Bars
+            poll.results.forEach { result ->
+                val barColor = when (result.party.uppercase()) {
+                    "DEM", "DEMOCRAT" -> Color(0xFF3B82F6) // Blue
+                    "REP", "REPUBLICAN" -> Color(0xFFEF4444) // Red
+                    else -> Color(0xFFF59E0B) // Yellow/Independent
+                }
+
+                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Run Local OLS Regression")
+                        Text(result.candidateName, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                        Text("${result.pct}%", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                     }
-
-                    Spacer(modifier = Modifier.height(32.dp))
-
-                    regressionOutput?.let { result ->
-                        Text("Regression Results", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colors.secondary)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text("R-Squared: ${result.rSquared.toString().take(6)}")
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
-                        Text("Coefficients:", fontWeight = FontWeight.Bold)
-                        Text("Intercept (β0): ${result.beta[0].toString().take(6)} (SE: ${result.standardErrors[0].toString().take(6)})")
-                        
-                        val xList = selectedXs.toList()
-                        xList.forEachIndexed { index, feature ->
-                            val bIdx = index + 1
-                            if (bIdx < result.beta.size) {
-                                Text("$feature (β$bIdx): ${result.beta[bIdx].toString().take(6)} (SE: ${result.standardErrors[bIdx].toString().take(6)})")
-                            }
-                        }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(10.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF334155))
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(fraction = (result.pct / 100.0).toFloat())
+                                .fillMaxHeight()
+                                .clip(CircleShape)
+                                .background(barColor)
+                        )
                     }
                 }
             }

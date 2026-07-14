@@ -50,11 +50,14 @@ class PocketBaseClient(
         return authResponse
     }
 
-    suspend fun getRecords(collectionName: String): PocketBaseRecordList {
+    suspend fun getRecords(collectionName: String, expand: String? = null, sort: String? = null, perPage: Int? = null): PocketBaseRecordList {
         val response = client.get("$baseUrl/api/collections/$collectionName/records") {
             if (authToken != null) {
                 header(HttpHeaders.Authorization, authToken)
             }
+            if (expand != null) url.parameters.append("expand", expand)
+            if (sort != null) url.parameters.append("sort", sort)
+            if (perPage != null) url.parameters.append("perPage", perPage.toString())
         }
         
         if (!response.status.isSuccess()) {
