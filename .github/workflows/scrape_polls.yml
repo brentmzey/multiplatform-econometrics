@@ -1,0 +1,30 @@
+name: Daily NYT Polls Scraper
+
+on:
+  schedule:
+    - cron: '0 12 * * *' # Runs every day at 12:00 UTC
+  workflow_dispatch: # Allows manual triggering from the GitHub UI
+
+jobs:
+  scrape-and-update:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+          
+      - name: Install dependencies
+        working-directory: ./migrations
+        run: bun install
+        
+      - name: Run NYT Scraper
+        working-directory: ./migrations
+        env:
+          POCKETHOST_ADMIN_EMAIL: ${{ secrets.POCKETHOST_ADMIN_EMAIL }}
+          POCKETHOST_ADMIN_PASSWORD: ${{ secrets.POCKETHOST_ADMIN_PASSWORD }}
+        run: bun run scrape_nyt_polls.ts

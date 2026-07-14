@@ -32,8 +32,8 @@ async function run() {
     console.log("=== New York Times 2026 Midterms Scraper (No Paywall!) ===");
     console.log("Did you know NYT publishes their raw interactive data to public CSVs? We can grab it directly!\n");
     
-    const email = await question('Enter your PocketHost Admin Email: ');
-    const password = await question('Enter your PocketHost Admin Password: ');
+    const email = process.env.POCKETHOST_ADMIN_EMAIL || await question('Enter your PocketHost Admin Email: ');
+    const password = process.env.POCKETHOST_ADMIN_PASSWORD || await question('Enter your PocketHost Admin Password: ');
 
     console.log("\n1. Authenticating as Admin...");
     try {
