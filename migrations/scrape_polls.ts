@@ -43,11 +43,19 @@ async function runScraper() {
         return;
     }
 
-    console.log("\n2. Downloading ALL Presidential Polling Data from FiveThirtyEight...");
-    const csvUrl = "https://projects.fivethirtyeight.com/polls/data/president_polls.csv";
-    const response = await fetch(csvUrl);
-    const csvText = await response.text();
-    console.log(`✅ Downloaded ${(csvText.length / 1024 / 1024).toFixed(2)} MB of polling data.`);
+    console.log("\n2. Reading Presidential Polling Data from local CSV...");
+    const fs = require('fs');
+    const path = require('path');
+    const filePath = path.join(process.cwd(), 'president_polls.csv');
+    if (!fs.existsSync(filePath)) {
+        console.error("❌ Failed to find 'president_polls.csv' locally.");
+        console.error("Cloudflare blocks automated downloads. Please manually download the CSV from:");
+        console.error("👉 https://projects.fivethirtyeight.com/polls/data/president_polls.csv");
+        console.error("Place it in this 'migrations' folder and run this script again.");
+        return;
+    }
+    const csvText = fs.readFileSync(filePath, 'utf-8');
+    console.log(`✅ Read ${(csvText.length / 1024 / 1024).toFixed(2)} MB of polling data from local file.`);
 
     console.log("\n3. Parsing CSV Data...");
     const rows = parseCSV(csvText);
@@ -75,10 +83,10 @@ async function runScraper() {
         if (!geoId) {
             try {
                 // Try to find first
-                const existingGeo = await pb.collections.getOne('geographies', { filter: `geo_level="${geoLevel}" && name="${stateName}"` });
+                const existingGeo = await pb.collection('geographies').getFirstListItem(`geo_level="${geoLevel}" && name="${stateName}"`);
                 geoId = existingGeo.id;
             } catch {
-                const newGeo = await pb.collections.create('geographies', { geo_level: geoLevel, name: stateName });
+                const newGeo = await pb.collection('geographies').create({ geo_level: geoLevel, name: stateName });
                 geoId = newGeo.id;
             }
             geoCache.set(geoKey, geoId);
@@ -92,10 +100,10 @@ async function runScraper() {
         let candidateId = candidateCache.get(candidateName);
         if (!candidateId) {
             try {
-                const existingCand = await pb.collections.getOne('candidates', { filter: `name="${candidateName}"` });
+                const existingCand = await pb.collection('candidates').getFirstListItem(`name="${candidateName}"`);
                 candidateId = existingCand.id;
             } catch {
-                const newCand = await pb.collections.create('candidates', { name: candidateName, party: candidateParty });
+                const newCand = await pb.collection('candidates').create({ name: candidateName, party: candidateParty });
                 candidateId = newCand.id;
             }
             candidateCache.set(candidateName, candidateId);
@@ -113,7 +121,7 @@ async function runScraper() {
         let pollId = pollCache.get(pollKey);
         if (!pollId) {
             try {
-                const newPoll = await pb.collections.create('polls', { 
+                const newPoll = await pb.collection('polls').create({ 
                     pollster, 
                     start_date: startDate, 
                     end_date: endDate, 
@@ -122,8 +130,8 @@ async function runScraper() {
                 });
                 pollId = newPoll.id;
                 pollCache.set(pollKey, pollId);
-            } catch(e) {
-                // Ignore duplicates if our cache missed
+            } catch(e: any) {
+                console.error("Failed to insert poll:", e.response?.data || e.message);
                 continue; 
             }
         }
@@ -131,14 +139,14 @@ async function runScraper() {
         // --- 4. Poll Result (X-Ref) ---
         const pct = parseFloat(row.pct) || 0.0;
         try {
-            await pb.collections.create('poll_results', {
+            await pb.collection('poll_results').create({
                 poll_id: pollId,
                 geography_id: geoId,
                 candidate_id: candidateId,
                 pct: pct
             });
-        } catch(e) {
-            // Ignore dupes
+        } catch(e: any) {
+            console.error("Failed to insert poll result:", e.response?.data || e.message);
         }
         
         if (i % 50 === 0) {
