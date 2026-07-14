@@ -84,6 +84,7 @@ kotlin {
             dependencies {
                 implementation(kotlin("test-junit"))
                 implementation("io.ktor:ktor-server-test-host:3.0.0")
+                implementation(compose.desktop.uiTestJUnit4)
             }
         }
         val androidMain by getting {
