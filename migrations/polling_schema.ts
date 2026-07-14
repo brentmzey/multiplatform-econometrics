@@ -25,30 +25,31 @@ async function runMigration() {
         return;
     }
 
-    // Function to create collection and return its ID
-    async function createOrGetCollection(config: any) {
+    // Function to recreate collections cleanly
+    async function recreateCollection(config: any) {
+        try {
+            const existing = await pb.collections.getOne(config.name);
+            console.log(`⚠️ '${config.name}' exists. Deleting to recreate with proper fields...`);
+            await pb.collections.delete(existing.id);
+        } catch (e) {
+            // Does not exist yet, safe to proceed
+        }
         try {
             const col = await pb.collections.create(config);
-            console.log(`✅ '${config.name}' collection created.`);
+            console.log(`✅ '${config.name}' collection freshly created.`);
             return col.id;
         } catch (e: any) {
-            try {
-                const existing = await pb.collections.getOne(config.name);
-                console.log(`⚠️ '${config.name}' collection already exists.`);
-                return existing.id;
-            } catch (innerE) {
-                console.error(`❌ Failed to create or get '${config.name}':`, e.message);
-                throw e;
-            }
+            console.error(`❌ Failed to create '${config.name}':`, e.response?.data || e.message);
+            throw e;
         }
     }
 
     // Creating geographies
     console.log("\n2. Creating 'geographies' collection...");
-    const geoId = await createOrGetCollection({
+    const geoId = await recreateCollection({
         name: 'geographies',
         type: 'base',
-        schema: [
+        fields: [
             { name: 'geo_level', type: 'select', options: { maxSelect: 1, values: ["national", "state", "district", "local"] }, required: true },
             { name: 'name', type: 'text', required: true }
         ]
@@ -56,10 +57,10 @@ async function runMigration() {
 
     // Creating candidates
     console.log("\n3. Creating 'candidates' collection...");
-    const candidateId = await createOrGetCollection({
+    const candidateId = await recreateCollection({
         name: 'candidates',
         type: 'base',
-        schema: [
+        fields: [
             { name: 'name', type: 'text', required: true },
             { name: 'party', type: 'text' }
         ]
@@ -67,10 +68,10 @@ async function runMigration() {
 
     // Creating polls
     console.log("\n4. Creating 'polls' collection...");
-    const pollId = await createOrGetCollection({
+    const pollId = await recreateCollection({
         name: 'polls',
         type: 'base',
-        schema: [
+        fields: [
             { name: 'pollster', type: 'text', required: true },
             { name: 'start_date', type: 'date', required: true },
             { name: 'end_date', type: 'date', required: true },
@@ -82,10 +83,10 @@ async function runMigration() {
 
     // Creating poll_results (xref table)
     console.log("\n5. Creating 'poll_results' xref collection...");
-    await createOrGetCollection({
+    await recreateCollection({
         name: 'poll_results',
         type: 'base',
-        schema: [
+        fields: [
             { name: 'poll_id', type: 'relation', required: true, options: { collectionId: pollId, cascadeDelete: true } },
             { name: 'geography_id', type: 'relation', required: true, options: { collectionId: geoId, cascadeDelete: false } },
             { name: 'candidate_id', type: 'relation', required: true, options: { collectionId: candidateId, cascadeDelete: false } },
