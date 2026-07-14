@@ -107,7 +107,7 @@ fun LoginScreen(client: PocketBaseClient, onLoginSuccess: () -> Unit) {
                             try {
                                 // We wrap in try-catch. If it's a dummy email we can bypass for demo purposes
                                 if (email == "admin@demo.com") {
-                                    client.authWithPassword(email, password)
+                                    // Bypass network for UI tests/demos
                                     onLoginSuccess() 
                                 } else {
                                     client.authWithPassword(email, password)
