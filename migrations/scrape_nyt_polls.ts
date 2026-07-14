@@ -61,8 +61,21 @@ async function run() {
     // Helper sleep function to pace requests
     const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
+    console.log("\n2. Pre-fetching existing data to completely bypass rate limits...");
+    try {
+        const allGeos = await pb.collection('geographies').getFullList();
+        allGeos.forEach(g => geoCache.set(g.name, g.id));
+        
+        const allCands = await pb.collection('candidates').getFullList();
+        allCands.forEach(c => candCache.set(`${c.name}-${c.party}`, c.id));
+        
+        console.log(`✅ Cached ${geoCache.size} geographies and ${candCache.size} candidates in memory.`);
+    } catch(e) {
+        console.log("⚠️ Could not pre-fetch fully, relying on lazy caching.");
+    }
+
     for (const target of targets) {
-        console.log(`\n2. Fetching NYT ${target.name} Polls...`);
+        console.log(`\n3. Fetching NYT ${target.name} Polls...`);
         const res = await fetch(target.url);
         if (!res.ok) {
             console.error(`❌ Failed to fetch ${target.name} data.`);
@@ -73,7 +86,7 @@ async function run() {
         const records = parseCSV(csvText);
         console.log(`✅ Fetched and parsed ${records.length} ${target.name} polls.`);
 
-        console.log(`3. Pushing ${target.name} Data to PocketHost...`);
+        console.log(`4. Pushing ${target.name} Data to PocketHost...`);
         // We will push 50 records to demonstrate since we are caching now
         const limit = Math.min(50, records.length);
         
@@ -84,15 +97,11 @@ async function run() {
             const state = r.state || "US";
             let geoId = geoCache.get(state);
             if (!geoId) {
-                try {
-                    const existingGeo = await pb.collection('geographies').getFirstListItem(`name="${state}"`);
-                    geoId = existingGeo.id;
-                } catch {
-                    const geoLevel = state === "US" ? "national" : "state";
-                    const newGeo = await pb.collection('geographies').create({ name: state, geo_level: geoLevel });
-                    geoId = newGeo.id;
-                }
-                if (geoId) geoCache.set(state, geoId);
+                const geoLevel = state === "US" ? "national" : "state";
+                const newGeo = await pb.collection('geographies').create({ name: state, geo_level: geoLevel });
+                geoId = newGeo.id;
+                geoCache.set(state, geoId);
+                await sleep(250); // backoff after a write
             }
 
             // 2. Resolve Candidate
@@ -101,14 +110,10 @@ async function run() {
             const candKey = `${candName}-${party}`;
             let candId = candCache.get(candKey);
             if (!candId) {
-                try {
-                    const existingCand = await pb.collection('candidates').getFirstListItem(`name="${candName}"`);
-                    candId = existingCand.id;
-                } catch {
-                    const newCand = await pb.collection('candidates').create({ name: candName, party: party });
-                    candId = newCand.id;
-                }
-                if (candId) candCache.set(candKey, candId);
+                const newCand = await pb.collection('candidates').create({ name: candName, party: party });
+                candId = newCand.id;
+                candCache.set(candKey, candId);
+                await sleep(250); // backoff after a write
             }
 
             // 3. Resolve Poll
@@ -133,6 +138,7 @@ async function run() {
                     pollId = newPoll.id;
                 }
                 if (pollId) pollCache.set(pollKey, pollId);
+                await sleep(250); // backoff after poll queries
             }
 
             // 4. Insert Result
@@ -150,7 +156,7 @@ async function run() {
             process.stdout.write(`\rInserted ${i + 1}/${limit} ${target.name} records...`);
             
             // Sleep slightly to respect PocketHost rate limits (prevent 429)
-            await sleep(100);
+            await sleep(250);
         }
         console.log(`\n✅ Finished batch for ${target.name}.`);
     }
