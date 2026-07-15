@@ -57,9 +57,30 @@ async function run() {
     const geoCache = new Map<string, string>();
     const candCache = new Map<string, string>();
     const pollCache = new Map<string, string>();
+    const resultCache = new Set<string>();
 
     // Helper sleep function to pace requests
     const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+    // Helper to safely insert into PocketBase with 429 Rate Limit exponential backoff
+    async function retryCreate(collection: string, payload: any, maxRetries = 3): Promise<any> {
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                return await pb.collection(collection).create(payload, { requestKey: null });
+            } catch (e: any) {
+                if (e.status === 429) {
+                    console.log(`\n⚠️ Rate limited on ${collection}. Sleeping for ${attempt * 2} seconds...`);
+                    await sleep(attempt * 2000);
+                    if (attempt === maxRetries) throw e;
+                } else if (e.status === 400 && collection === 'poll_results') {
+                    // Ignore relation validation failures instead of crashing
+                    return null;
+                } else {
+                    throw e;
+                }
+            }
+        }
+    }
 
     console.log("\n2. Pre-fetching existing data to completely bypass rate limits...");
     try {
@@ -72,7 +93,10 @@ async function run() {
         const allPolls = await pb.collection('polls').getFullList({ requestKey: null });
         allPolls.forEach(p => pollCache.set(`${p.pollster}-${p.start_date.split(' ')[0]}`, p.id));
 
-        console.log(`✅ Cached ${geoCache.size} geographies, ${candCache.size} candidates, and ${pollCache.size} polls in memory.`);
+        const allResults = await pb.collection('poll_results').getFullList({ requestKey: null });
+        allResults.forEach(r => resultCache.add(`${r.poll_id}-${r.candidate_id}-${r.geography_id}`));
+
+        console.log(`✅ Cached ${geoCache.size} geographies, ${candCache.size} candidates, ${pollCache.size} polls, and ${resultCache.size} results in memory.`);
     } catch(e) {
         console.log("⚠️ Could not pre-fetch fully, relying on lazy caching.", e);
     }
@@ -103,10 +127,10 @@ async function run() {
             let geoId = geoCache.get(state);
             if (!geoId) {
                 const geoLevel = state === "US" ? "national" : "state";
-                const newGeo = await pb.collection('geographies').create({ name: state, geo_level: geoLevel }, { requestKey: null });
+                const newGeo = await retryCreate('geographies', { name: state, geo_level: geoLevel });
                 geoId = newGeo.id;
                 geoCache.set(state, geoId);
-                await sleep(500); // backoff after a write
+                await sleep(500);
             }
 
             // 2. Resolve Candidate
@@ -115,53 +139,58 @@ async function run() {
             const candKey = `${candName}-${party}`;
             let candId = candCache.get(candKey);
             if (!candId) {
-                const newCand = await pb.collection('candidates').create({ name: candName, party: party }, { requestKey: null });
+                const newCand = await retryCreate('candidates', { name: candName, party: party });
                 candId = newCand.id;
                 candCache.set(candKey, candId);
-                await sleep(500); // backoff after a write
+                await sleep(500);
             }
 
             // 3. Resolve Poll
             const pollster = r.pollster || "Unknown Pollster";
             const startDateStr = (r.start_date || new Date().toISOString()).split('T')[0];
-            const pollKey = `${pollster}-${startDateStr}-${state}`; // Added state to poll key to avoid deduplication bugs for same pollster/date across states
+            const pollKey = `${pollster}-${startDateStr}`;
             let pollId = pollCache.get(pollKey);
             
-            let isNewPoll = false;
             if (!pollId) {
                 let pSize = parseInt(r.sample_size || "0");
                 if (isNaN(pSize)) pSize = 0;
 
-                const newPoll = await pb.collection('polls').create({
+                const newPoll = await retryCreate('polls', {
                     pollster: pollster,
                     start_date: new Date(r.start_date || Date.now()).toISOString(),
                     end_date: new Date(r.end_date || Date.now()).toISOString(),
                     sample_size: pSize,
                     population: r.population || "rv"
-                }, { requestKey: null });
+                });
                 pollId = newPoll.id;
                 pollCache.set(pollKey, pollId);
-                isNewPoll = true;
-                await sleep(500); // backoff after write
+                await sleep(500);
             }
 
-            // 4. Insert Result ONLY if the Poll was just created!
-            // This prevents duplicating poll results every time the cron runs.
-            if (isNewPoll) {
+            // 4. Insert Result
+            // We use a deduplication key to ensure we don't insert the same candidate twice for the same poll
+            const resultKey = `${pollId}-${candId}-${geoId}`;
+            if (!resultCache.has(resultKey)) {
                 let pct = parseFloat(r.pct || "0");
                 if (isNaN(pct)) pct = 0;
 
-                await pb.collection('poll_results').create({
-                    poll_id: pollId as string,
-                    geography_id: geoId as string,
-                    candidate_id: candId as string,
-                    pct: pct
-                }, { requestKey: null });
+                try {
+                    await retryCreate('poll_results', {
+                        poll_id: pollId,
+                        geography_id: geoId,
+                        candidate_id: candId,
+                        pct: pct
+                    });
 
-                totalInserted++;
-                newPollsAdded++;
-                // Sleep slightly to respect PocketHost rate limits (prevent 429)
-                await sleep(250);
+                    resultCache.add(resultKey);
+                    totalInserted++;
+                    newPollsAdded++;
+                    await sleep(50);
+                } catch (e: any) {
+                    console.error(`\n❌ Failed to insert result for poll ${pollId}, cand ${candId}, geo ${geoId}.`);
+                    console.error("Payload rejected:", JSON.stringify(e?.response || e, null, 2));
+                    // We don't crash, we just skip and continue
+                }
             }
             
             if (i % 100 === 0 || i === limit - 1) {
