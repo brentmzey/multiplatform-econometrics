@@ -10,32 +10,18 @@ const rl = readline.createInterface({
 
 const question = (query: string): Promise<string> => new Promise(resolve => rl.question(query, resolve));
 
-async function ensureCollection(name: string, schema: any[]) {
+async function ensureCollection(name: string, fieldsDef: any[]) {
     try {
         const existing = await pb.collections.getOne(name);
         console.log(`✅ Collection '${name}' already exists.`);
-        
-        // Idempotent update: ensure all fields exist
-        let needsUpdate = false;
-        const currentSchema = existing.schema || [];
-        for (const field of schema) {
-            if (!currentSchema.find(f => f.name === field.name)) {
-                existing.schema.push(field);
-                needsUpdate = true;
-            }
-        }
-        
-        if (needsUpdate) {
-            await pb.collections.update(name, { schema: existing.schema });
-            console.log(`✅ Updated schema for '${name}'`);
-        }
         return existing;
     } catch (e) {
         console.log(`⚠️ Collection '${name}' not found. Creating...`);
+        // Use 'fields' instead of 'schema' for PocketBase v0.23+
         const newCollection = await pb.collections.create({
             name: name,
             type: 'base',
-            schema: schema,
+            fields: fieldsDef,
             listRule: "",
             viewRule: "",
             createRule: "@request.auth.id != ''",
