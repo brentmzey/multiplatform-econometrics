@@ -167,3 +167,99 @@ class DescriptiveStatistics {
         return kotlin.math.sqrt(variance)
     }
 }
+
+class TwoStageLeastSquares(val y: DoubleArray, val x: Array<DoubleArray>, val z: Array<DoubleArray>) {
+    // y: Dependent variable (N x 1)
+    // x: Explanatory variables (N x K), including both exogenous and endogenous
+    // z: Instruments (N x L), including all exogenous variables from x plus the external instruments
+    val n = y.size
+    val k = if (x.isNotEmpty()) x[0].size else 0
+    val l = if (z.isNotEmpty()) z[0].size else 0
+
+    fun estimate(): OLSResult {
+        require(l >= k) { "Order condition failed: Number of instruments ($l) must be >= number of explanatory variables ($k)." }
+        
+        val yMat = Matrix(Array(n) { i -> DoubleArray(1) { y[i] } })
+        val xMat = Matrix(x)
+        val zMat = Matrix(z)
+        
+        val zT = zMat.transpose()
+        val zTz = zT * zMat
+        val zTzInv = zTz.invert()
+        
+        // Projection matrix P_z = Z * (Z^T Z)^-1 Z^T
+        val pZ = zMat * (zTzInv * zT)
+        
+        // Stage 1: X_hat = P_z * X
+        val xHat = pZ * xMat
+        val xHatT = xHat.transpose()
+        
+        // Stage 2: beta_2sls = (X_hat^T X_hat)^-1 X_hat^T Y
+        val xHatTxHat = xHatT * xHat
+        val xHatTxHatInv = xHatTxHat.invert()
+        val betaMat = (xHatTxHatInv * xHatT) * yMat
+        
+        val beta = DoubleArray(k) { i -> betaMat[i, 0] }
+        
+        // True Residuals using original X, not X_hat
+        val residuals = DoubleArray(n)
+        var rss = 0.0
+        for (i in 0 until n) {
+            var yHat = 0.0
+            for (j in 0 until k) {
+                yHat += beta[j] * x[i][j]
+            }
+            residuals[i] = y[i] - yHat
+            rss += residuals[i] * residuals[i]
+        }
+        
+        // Standard Errors
+        val sigma2 = rss / (n - k)
+        val se = DoubleArray(k)
+        for (j in 0 until k) {
+            // Var(beta) = sigma2 * (X_hat^T X_hat)^-1
+            se[j] = sqrt(sigma2 * xHatTxHatInv[j, j])
+        }
+        
+        // R-squared (Note: R-squared has no strict statistical meaning in IV/2SLS, but provided for reference)
+        val yMean = y.average()
+        var tss = 0.0
+        for (i in 0 until n) {
+            val diff = y[i] - yMean
+            tss += diff * diff
+        }
+        val rSquared = if (tss > 0.0) 1.0 - (rss / tss) else 1.0
+        
+        return OLSResult(beta, se, rSquared, residuals)
+    }
+
+    /**
+     * Hausman Test for Endogeneity (Regression-based form)
+     * Returns true if endogeneity is detected (rejects Null Hypothesis that OLS is consistent).
+     */
+    fun performHausmanTest(endogenousColIndex: Int, confidenceLevel: Double = 1.96): Boolean {
+        // Step 1: Regress the endogenous variable on all instruments Z
+        val endogY = DoubleArray(n) { i -> x[i][endogenousColIndex] }
+        val stage1 = OLS(endogY, z).estimate()
+        val vHat = stage1.residuals // First stage residuals
+        
+        // Step 2: Regress original Y on X AND the residuals vHat
+        val augmentedX = Array(n) { i ->
+            val row = DoubleArray(k + 1)
+            for (j in 0 until k) row[j] = x[i][j]
+            row[k] = vHat[i]
+            row
+        }
+        
+        val stage2 = OLS(y, augmentedX).estimate()
+        
+        // Check the t-statistic of the vHat coefficient
+        val vHatBeta = stage2.beta[k]
+        val vHatSe = stage2.standardErrors[k]
+        val tStat = kotlin.math.abs(vHatBeta / vHatSe)
+        
+        // If tStat > critical value (e.g., 1.96 for 95% confidence), we reject the null hypothesis
+        // Rejecting null means endogeneity is present, so 2SLS must be used over OLS.
+        return tStat > confidenceLevel
+    }
+}
