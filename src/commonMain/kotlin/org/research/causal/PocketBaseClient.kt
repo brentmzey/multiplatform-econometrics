@@ -52,17 +52,22 @@ class PocketBaseClient(
     }
 
     suspend fun getRecords(collectionName: String, expand: String? = null, sort: String? = null, perPage: Int? = null): PocketBaseRecordList {
+        println("GET $baseUrl/api/collections/$collectionName/records with expand=$expand, sort=$sort, perPage=$perPage")
         val response = client.get("$baseUrl/api/collections/$collectionName/records") {
             if (authToken != null) {
                 header(HttpHeaders.Authorization, authToken)
             }
-            if (expand != null) url.parameters.append("expand", expand)
-            if (sort != null) url.parameters.append("sort", sort)
-            if (perPage != null) url.parameters.append("perPage", perPage.toString())
+            if (expand != null) parameter("expand", expand)
+            if (sort != null) parameter("sort", sort)
+            if (perPage != null) parameter("perPage", perPage)
         }
+
+        println("Response: ${response.status}")
+        val body = try { response.bodyAsText() } catch (e: Exception) { "No Body" }
+        println("Body: $body")
         
         if (!response.status.isSuccess()) {
-            throw Exception("Failed to fetch records from $collectionName: ${response.status.description}")
+            throw Exception("Failed to fetch records from $collectionName: ${response.status.description} - Body: $body")
         }
         
         return response.body()
