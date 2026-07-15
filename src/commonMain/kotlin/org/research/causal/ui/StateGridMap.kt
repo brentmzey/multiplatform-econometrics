@@ -43,8 +43,9 @@ val stateAbbreviations = mapOf(
     "District of Columbia" to "DC"
 )
 
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
-fun StateGridMap(polls: List<PollData>, modifier: Modifier = Modifier) {
+fun StateGridMap(polls: List<PollData>, modifier: Modifier = Modifier, onStateSelected: (String?) -> Unit) {
     // Calculate margins per state
     val stateMargins = mutableMapOf<String, Pair<String, Double>>() // Abbreviation -> Pair(WinningParty, MarginPct)
     
@@ -52,69 +53,131 @@ fun StateGridMap(polls: List<PollData>, modifier: Modifier = Modifier) {
     val statePolls = polls.groupBy { it.geography }
     for ((state, statePollList) in statePolls) {
         val abbrev = stateAbbreviations[state] ?: continue
-        // Sort by start date descending to get the latest
         val latestPoll = statePollList.sortedByDescending { it.startDate }.firstOrNull() ?: continue
         
-        // Find top 2 candidates
         val sortedResults = latestPoll.results.sortedByDescending { it.pct }
         if (sortedResults.isNotEmpty()) {
             val winner = sortedResults[0]
             val runnerUp = if (sortedResults.size > 1) sortedResults[1] else null
-            
             val margin = winner.pct - (runnerUp?.pct ?: 0.0)
             stateMargins[abbrev] = Pair(winner.party.uppercase(), margin)
         }
     }
 
+    var hoveredState by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    var selectedState by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colors.surface, RoundedCornerShape(16.dp))
+            .background(
+                brush = androidx.compose.ui.graphics.Brush.linearGradient(
+                    colors = listOf(Color(0xFF1E293B), Color(0xFF0F172A))
+                ),
+                shape = RoundedCornerShape(24.dp)
+            )
+            .border(1.dp, Color(0xFF334155), RoundedCornerShape(24.dp))
             .padding(24.dp)
     ) {
-        Text("Latest Polling Margins Map", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colors.onSurface)
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Column(
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            usGrid.forEach { row ->
-                Row(modifier = Modifier.padding(vertical = 2.dp)) {
-                    row.forEach { abbrev ->
-                        if (abbrev.isBlank()) {
-                            Spacer(modifier = Modifier.size(32.dp).padding(2.dp))
-                        } else {
-                            val marginData = stateMargins[abbrev]
-                            val backgroundColor = if (marginData != null) {
-                                val (party, margin) = marginData
-                                val baseColor = when (party) {
-                                    "DEM", "DEMOCRAT" -> Color(0xFF3B82F6) // Blue
-                                    "REP", "REPUBLICAN" -> Color(0xFFEF4444) // Red
-                                    else -> Color(0xFFF59E0B) // Yellow
-                                }
-                                // Fade based on margin (0-20% margin scales opacity)
-                                val alpha = (0.4f + (margin / 20.0f) * 0.6f).toFloat().coerceIn(0.4f, 1.0f)
-                                baseColor.copy(alpha = alpha)
-                            } else {
-                                Color.DarkGray
-                            }
+            Text("Electoral Map Forecast", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+            if (selectedState != null) {
+                androidx.compose.material.TextButton(
+                    onClick = { 
+                        selectedState = null
+                        onStateSelected(null) 
+                    }
+                ) {
+                    Text("Clear Selection", color = Color(0xFF38BDF8), fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+        Text("Latest state-level polling margins. Click a state to filter.", fontSize = 14.sp, color = Color(0xFF94A3B8))
+        Spacer(modifier = Modifier.height(24.dp))
 
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .padding(2.dp)
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(backgroundColor)
-                                    .border(1.dp, Color.Black.copy(alpha = 0.5f), RoundedCornerShape(4.dp)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = abbrev,
-                                    color = Color.White,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            val boxSize = (maxWidth / 12).coerceAtMost(56.dp)
+            val spacing = 4.dp
+
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                usGrid.forEach { row ->
+                    Row(modifier = Modifier.padding(vertical = spacing / 2)) {
+                        row.forEach { abbrev ->
+                            if (abbrev.isBlank()) {
+                                Spacer(modifier = Modifier.size(boxSize).padding(horizontal = spacing / 2))
+                            } else {
+                                val marginData = stateMargins[abbrev]
+                                val isHovered = hoveredState == abbrev
+                                val isSelected = selectedState == abbrev
+                                
+                                val backgroundColor = if (marginData != null) {
+                                    val (party, margin) = marginData
+                                    val baseColor = when (party) {
+                                        "DEM", "DEMOCRAT" -> Color(0xFF3B82F6) // Blue
+                                        "REP", "REPUBLICAN" -> Color(0xFFEF4444) // Red
+                                        else -> Color(0xFFF59E0B) // Yellow
+                                    }
+                                    val alpha = (0.3f + (margin / 15.0f) * 0.7f).toFloat().coerceIn(0.3f, 1.0f)
+                                    baseColor.copy(alpha = if (isSelected || isHovered) 1.0f else alpha)
+                                } else {
+                                    if (isHovered || isSelected) Color(0xFF475569) else Color(0xFF1E293B)
+                                }
+
+                                val borderColor = if (isSelected) Color.White else if (isHovered) Color(0xFF94A3B8) else Color(0xFF334155)
+
+                                Box(
+                                    modifier = Modifier
+                                        .size(boxSize)
+                                        .padding(horizontal = spacing / 2)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(backgroundColor)
+                                        .border(if (isSelected) 2.dp else 1.dp, borderColor, RoundedCornerShape(8.dp))
+                                        .androidx.compose.foundation.clickable {
+                                            if (selectedState == abbrev) {
+                                                selectedState = null
+                                                onStateSelected(null)
+                                            } else {
+                                                selectedState = abbrev
+                                                onStateSelected(abbrev)
+                                            }
+                                        }
+                                        .androidx.compose.ui.input.pointer.pointerInput(Unit) {
+                                            awaitPointerEventScope {
+                                                while (true) {
+                                                    val event = awaitPointerEvent()
+                                                    when (event.type) {
+                                                        androidx.compose.ui.input.pointer.PointerEventType.Enter -> hoveredState = abbrev
+                                                        androidx.compose.ui.input.pointer.PointerEventType.Exit -> {
+                                                            if (hoveredState == abbrev) hoveredState = null
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        .androidx.compose.ui.input.pointer.pointerHoverIcon(androidx.compose.ui.input.pointer.PointerIcon.Hand),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(
+                                            text = abbrev,
+                                            color = Color.White,
+                                            fontSize = (boxSize.value * 0.3f).sp,
+                                            fontWeight = FontWeight.ExtraBold
+                                        )
+                                        if (marginData != null) {
+                                            Text(
+                                                text = "+${marginData.second.toInt()}",
+                                                color = Color.White.copy(alpha = 0.8f),
+                                                fontSize = (boxSize.value * 0.22f).sp,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }

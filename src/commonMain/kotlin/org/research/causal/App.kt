@@ -184,6 +184,7 @@ fun DashboardScreen(repository: PollingRepository, onLogout: () -> Unit) {
     var polls by remember { mutableStateOf<List<PollData>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var searchQuery by remember { mutableStateOf("") }
+    var selectedStateAbbrev by remember { mutableStateOf<String?>(null) }
     val coroutineScope = rememberCoroutineScope()
 
     fun loadData(forceRefresh: Boolean = false) {
@@ -200,19 +201,20 @@ fun DashboardScreen(repository: PollingRepository, onLogout: () -> Unit) {
     }
 
     LaunchedEffect(Unit) {
-        loadData(forceRefresh = false) // Load from cache first!
+        loadData(forceRefresh = false)
     }
 
-    // Computed property for filtered polls
-    val filteredPolls = remember(polls, searchQuery) {
-        if (searchQuery.isBlank()) {
-            polls
-        } else {
-            polls.filter { poll ->
+    val filteredPolls = remember(polls, searchQuery, selectedStateAbbrev) {
+        polls.filter { poll ->
+            val matchesSearch = searchQuery.isBlank() || 
                 poll.geography.contains(searchQuery, ignoreCase = true) ||
                 poll.pollster.contains(searchQuery, ignoreCase = true) ||
                 poll.results.any { it.candidateName.contains(searchQuery, ignoreCase = true) }
-            }
+            
+            val matchesState = selectedStateAbbrev == null || 
+                org.research.causal.ui.stateAbbreviations[poll.geography] == selectedStateAbbrev
+            
+            matchesSearch && matchesState
         }
     }
 
@@ -221,72 +223,94 @@ fun DashboardScreen(repository: PollingRepository, onLogout: () -> Unit) {
             .fillMaxSize()
             .background(MaterialTheme.colors.background)
     ) {
-        // App Bar
         TopAppBar(
             title = { 
-                Text("2026 Midterms Polling", fontWeight = FontWeight.Bold) 
+                Text("2026 Midterms Polling", fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, color = Color.White) 
             },
-            backgroundColor = MaterialTheme.colors.surface,
-            contentColor = MaterialTheme.colors.onSurface,
-            elevation = 8.dp,
+            backgroundColor = Color(0xFF0F172A), // Slate 900
+            contentColor = Color.White,
+            elevation = 0.dp,
             actions = {
                 IconButton(onClick = { loadData(forceRefresh = true) }) {
-                    Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                    Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = Color(0xFF94A3B8))
                 }
                 TextButton(onClick = onLogout) {
-                    Text("Logout", color = MaterialTheme.colors.primary)
+                    Text("Logout", color = Color(0xFF38BDF8), fontWeight = FontWeight.Bold)
                 }
             }
         )
         
-        // Filter / Search Bar
-        Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp)) {
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                placeholder = { Text("Filter by State, Pollster, or Candidate...") },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                singleLine = true,
-                colors = TextFieldDefaults.outlinedTextFieldColors(
-                    backgroundColor = MaterialTheme.colors.surface,
-                    unfocusedBorderColor = Color.Transparent
-                )
-            )
-        }
+        Divider(color = Color(0xFF334155))
 
-        // Main Content
         if (isLoading && polls.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = MaterialTheme.colors.primary)
             }
         } else {
-            Column(modifier = Modifier.fillMaxSize()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+            Row(modifier = Modifier.fillMaxSize()) {
+                // LEFT SIDEBAR: Search and List of Polls
+                Column(
+                    modifier = Modifier
+                        .width(400.dp)
+                        .fillMaxHeight()
+                        .background(Color(0xFF1E293B)) // Slate 800
+                        .padding(16.dp)
+                ) {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = { Text("Search states, pollsters...", color = Color(0xFF64748B)) },
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true,
+                        colors = TextFieldDefaults.outlinedTextFieldColors(
+                            backgroundColor = Color(0xFF0F172A),
+                            unfocusedBorderColor = Color(0xFF334155),
+                            focusedBorderColor = Color(0xFF38BDF8),
+                            textColor = Color.White
+                        )
+                    )
+
+                    Text(
+                        "${filteredPolls.size} Polls Found",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
+                    )
+
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        items(filteredPolls) { poll ->
+                            PollCard(poll)
+                        }
+                    }
+                }
+
+                Divider(modifier = Modifier.width(1.dp).fillMaxHeight(), color = Color(0xFF334155))
+
+                // RIGHT MAIN CONTENT: Visualizations
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .padding(32.dp),
+                    verticalArrangement = Arrangement.spacedBy(32.dp)
                 ) {
                     // Time Series Chart
                     org.research.causal.ui.TimeSeriesLineChart(
                         polls = filteredPolls,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.fillMaxWidth().weight(1f)
                     )
                     
                     // State Grid Map
                     org.research.causal.ui.StateGridMap(
-                        polls = filteredPolls,
-                        modifier = Modifier.weight(1f)
+                        polls = polls, // Always pass ALL polls to map so it renders fully!
+                        modifier = Modifier.fillMaxWidth().weight(1.5f),
+                        onStateSelected = { selectedStateAbbrev = it }
                     )
-                }
-
-                LazyColumn(
-                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.fillMaxSize().weight(1f)
-                ) {
-                    items(filteredPolls) { poll ->
-                        PollCard(poll)
-                    }
                 }
             }
         }
@@ -297,11 +321,12 @@ fun DashboardScreen(repository: PollingRepository, onLogout: () -> Unit) {
 fun PollCard(poll: PollData) {
     Card(
         shape = RoundedCornerShape(16.dp),
-        backgroundColor = MaterialTheme.colors.surface,
-        elevation = 4.dp,
+        backgroundColor = Color(0xFF0F172A),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF334155)),
+        elevation = 0.dp,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(24.dp)) {
+        Column(modifier = Modifier.padding(20.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -309,28 +334,29 @@ fun PollCard(poll: PollData) {
             ) {
                 Text(
                     text = poll.pollster,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colors.onSurface
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color.White
                 )
                 Box(
                     modifier = Modifier
-                        .background(Color(0xFF334155), RoundedCornerShape(12.dp))
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                        .background(Color(0xFF1E293B), RoundedCornerShape(8.dp))
+                        .border(1.dp, Color(0xFF334155), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
                 ) {
                     Text(
                         text = poll.geography,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = Color(0xFF38BDF8)
                     )
                 }
             }
             
             Text(
-                text = "Date: ${poll.startDate}",
-                fontSize = 14.sp,
-                color = Color.Gray,
+                text = "Conducted: ${poll.startDate}",
+                fontSize = 13.sp,
+                color = Color(0xFF94A3B8),
                 modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
             )
 
@@ -342,21 +368,21 @@ fun PollCard(poll: PollData) {
                     else -> Color(0xFFF59E0B) // Yellow/Independent
                 }
 
-                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(result.candidateName, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-                        Text("${result.pct}%", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        Text(result.candidateName, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = Color(0xFFF1F5F9))
+                        Text("${result.pct}%", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.White)
                     }
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(10.dp)
+                            .height(8.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFF334155))
+                            .background(Color(0xFF1E293B))
                     ) {
                         Box(
                             modifier = Modifier
