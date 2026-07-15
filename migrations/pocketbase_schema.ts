@@ -39,13 +39,26 @@ async function run() {
     const password = process.env.POCKETHOST_ADMIN_PASSWORD || await question('Enter your PocketHost Admin Password: ');
 
     console.log("\n1. Authenticating as Admin...");
-    try {
-        await pb.admins.authWithPassword(email, password);
-        console.log("✅ Authenticated successfully.");
-    } catch(e) {
-        console.error("❌ Failed to authenticate as admin.");
-        rl.close();
-        return;
+    let authRetries = 5;
+    while (authRetries > 0) {
+        try {
+            await pb.admins.authWithPassword(email, password);
+            console.log("✅ Authenticated successfully.");
+            break;
+        } catch(e: any) {
+            if (e.status === 429) {
+                console.error(`⚠️ Auth rate-limited. Waiting 10 seconds... (${authRetries} retries left)`);
+                await new Promise(r => setTimeout(r, 10000));
+                authRetries--;
+                if (authRetries === 0) {
+                    console.error("❌ Failed to authenticate after retries.");
+                    process.exit(1);
+                }
+            } else {
+                console.error("❌ Failed to authenticate as admin:", e.message);
+                process.exit(1);
+            }
+        }
     }
 
     console.log("\n2. Enforcing Relational Data Integrity in PocketBase...");

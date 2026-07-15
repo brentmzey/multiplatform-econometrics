@@ -36,13 +36,28 @@ async function run() {
     const password = process.env.POCKETHOST_ADMIN_PASSWORD || await question('Enter your PocketHost Admin Password: ');
 
     console.log("\n1. Authenticating as Admin...");
-    try {
-        await pb.admins.authWithPassword(email, password);
-        console.log("✅ Authenticated successfully.");
-    } catch(e2) {
-        console.error("❌ Failed to authenticate as admin.");
-        rl.close();
-        return;
+    let authRetries = 5;
+    while (authRetries > 0) {
+        try {
+            await pb.admins.authWithPassword(email, password);
+            console.log("✅ Authenticated successfully.");
+            break;
+        } catch(e2: any) {
+            if (e2.status === 429) {
+                console.error(`⚠️ Auth rate-limited. Waiting 10 seconds... (${authRetries} retries left)`);
+                await sleep(10000);
+                authRetries--;
+                if (authRetries === 0) {
+                    console.error("❌ Failed to authenticate after retries.");
+                    rl.close();
+                    return;
+                }
+            } else {
+                console.error("❌ Failed to authenticate as admin:", e2.message);
+                rl.close();
+                return;
+            }
+        }
     }
 
     const targets = [
