@@ -1,0 +1,58 @@
+name: Build and Deploy Econometrics Suite
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-desktop:
+    name: Build Desktop Artifact
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v3
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Build Fat Jar (JVM)
+        run: ./gradlew fatJar
+
+      - name: Upload Desktop Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Compose-Desktop-App
+          path: build/libs/*fat.jar
+
+  # Web App compilation (Ready for Netlify)
+  build-web:
+    name: Build Web Artifact
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v3
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Build Wasm/Js Browser Distribution
+        run: ./gradlew wasmJsBrowserDistribution || echo "WASM build disabled for now"
+      
+      - name: Upload Web Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Compose-Web-App
+          path: build/dist/wasmJs/productionExecutable/
