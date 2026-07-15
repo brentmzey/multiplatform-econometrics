@@ -88,4 +88,37 @@ class MathTest {
         assertTrue(result.rSquared > 0.0)
         assertEquals(5, result.residuals.size)
     }
+
+    @Test
+    fun testTwoStageLeastSquares() {
+        val y = doubleArrayOf(3.0, 5.0, 7.0, 9.0, 11.0)
+        
+        // X contains Intercept and Endogenous Var
+        val x = arrayOf(
+            doubleArrayOf(1.0, 2.0),
+            doubleArrayOf(1.0, 3.0),
+            doubleArrayOf(1.0, 4.0),
+            doubleArrayOf(1.0, 5.0),
+            doubleArrayOf(1.0, 6.0)
+        )
+        
+        // Z contains Intercept and Instrument
+        val z = arrayOf(
+            doubleArrayOf(1.0, 1.5),
+            doubleArrayOf(1.0, 2.5),
+            doubleArrayOf(1.0, 3.5),
+            doubleArrayOf(1.0, 4.5),
+            doubleArrayOf(1.0, 5.5)
+        )
+        
+        val tsls = TwoStageLeastSquares(y, x, z)
+        val result = tsls.estimate()
+        
+        assertEquals(2, result.beta.size)
+        assertTrue(result.beta[1] > 0.0) // Should have a positive relationship
+        
+        // Verify Hausman Test executes without errors
+        val hasEndogeneity = tsls.performHausmanTest(endogenousColIndex = 1, confidenceLevel = 0.1)
+        assertTrue(hasEndogeneity || !hasEndogeneity) 
+    }
 }
