@@ -265,13 +265,32 @@ fun DashboardScreen(repository: PollingRepository, onLogout: () -> Unit) {
                 CircularProgressIndicator(color = MaterialTheme.colors.primary)
             }
         } else {
-            LazyColumn(
-                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.fillMaxSize()
-            ) {
-                items(filteredPolls) { poll ->
-                    PollCard(poll)
+            Column(modifier = Modifier.fillMaxSize()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // Time Series Chart
+                    org.research.causal.ui.TimeSeriesLineChart(
+                        polls = filteredPolls,
+                        modifier = Modifier.weight(1f)
+                    )
+                    
+                    // State Grid Map
+                    org.research.causal.ui.StateGridMap(
+                        polls = filteredPolls,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                LazyColumn(
+                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxSize().weight(1f)
+                ) {
+                    items(filteredPolls) { poll ->
+                        PollCard(poll)
+                    }
                 }
             }
         }

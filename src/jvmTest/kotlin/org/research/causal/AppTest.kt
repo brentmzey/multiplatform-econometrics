@@ -12,16 +12,17 @@ class AppTest {
     @Test
     fun testLoginAndDashboardNavigation() {
         composeTestRule.setContent {
-            App()
+            val driverFactory = org.research.causal.db.JvmDatabaseDriverFactory()
+            App(driverFactory)
         }
 
         // Verify we are on the Login screen initially
-        composeTestRule.onNodeWithText("Econometrics Suite").assertExists()
-        composeTestRule.onNodeWithText("Email").assertExists()
+        composeTestRule.onNodeWithText("NYT Polling Data").assertExists()
+        composeTestRule.onNodeWithText("Admin Email").assertExists()
         composeTestRule.onNodeWithText("Password").assertExists()
         
         // Enter dummy credentials
-        composeTestRule.onNodeWithText("Email").performTextInput("admin@demo.com")
+        composeTestRule.onNodeWithText("Admin Email").performTextInput("admin@demo.com")
         composeTestRule.onNodeWithText("Password").performTextInput("password1234")
         
         // Click Login button
@@ -29,16 +30,16 @@ class AppTest {
         
         // Verify we navigated to the Dashboard screen
         composeTestRule.waitForIdle()
-        composeTestRule.onNodeWithText("Econometrics Dashboard").assertExists()
+        composeTestRule.onNodeWithText("2026 Midterms Polling").assertExists()
         
-        // Verify Upload Data button exists
-        composeTestRule.onNodeWithText("Upload Data").assertExists()
+        // Verify Logout button exists
+        composeTestRule.onNodeWithText("Logout").assertExists()
         
         // Click Logout button
         composeTestRule.onNodeWithText("Logout").performClick()
         
         // Verify we are back on the Login screen
         composeTestRule.waitForIdle()
-        composeTestRule.onNodeWithText("Econometrics Suite").assertExists()
+        composeTestRule.onNodeWithText("NYT Polling Data").assertExists()
     }
 }
