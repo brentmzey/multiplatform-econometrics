@@ -63,15 +63,18 @@ async function run() {
 
     console.log("\n2. Pre-fetching existing data to completely bypass rate limits...");
     try {
-        const allGeos = await pb.collection('geographies').getFullList();
+        const allGeos = await pb.collection('geographies').getFullList({ requestKey: null });
         allGeos.forEach(g => geoCache.set(g.name, g.id));
         
-        const allCands = await pb.collection('candidates').getFullList();
+        const allCands = await pb.collection('candidates').getFullList({ requestKey: null });
         allCands.forEach(c => candCache.set(`${c.name}-${c.party}`, c.id));
         
-        console.log(`✅ Cached ${geoCache.size} geographies and ${candCache.size} candidates in memory.`);
+        const allPolls = await pb.collection('polls').getFullList({ requestKey: null });
+        allPolls.forEach(p => pollCache.set(`${p.pollster}-${p.start_date.split(' ')[0]}`, p.id));
+
+        console.log(`✅ Cached ${geoCache.size} geographies, ${candCache.size} candidates, and ${pollCache.size} polls in memory.`);
     } catch(e) {
-        console.log("⚠️ Could not pre-fetch fully, relying on lazy caching.");
+        console.log("⚠️ Could not pre-fetch fully, relying on lazy caching.", e);
     }
 
     for (const target of targets) {
@@ -98,10 +101,10 @@ async function run() {
             let geoId = geoCache.get(state);
             if (!geoId) {
                 const geoLevel = state === "US" ? "national" : "state";
-                const newGeo = await pb.collection('geographies').create({ name: state, geo_level: geoLevel });
+                const newGeo = await pb.collection('geographies').create({ name: state, geo_level: geoLevel }, { requestKey: null });
                 geoId = newGeo.id;
                 geoCache.set(state, geoId);
-                await sleep(250); // backoff after a write
+                await sleep(500); // backoff after a write
             }
 
             // 2. Resolve Candidate
@@ -110,35 +113,32 @@ async function run() {
             const candKey = `${candName}-${party}`;
             let candId = candCache.get(candKey);
             if (!candId) {
-                const newCand = await pb.collection('candidates').create({ name: candName, party: party });
+                const newCand = await pb.collection('candidates').create({ name: candName, party: party }, { requestKey: null });
                 candId = newCand.id;
                 candCache.set(candKey, candId);
-                await sleep(250); // backoff after a write
+                await sleep(500); // backoff after a write
             }
 
             // 3. Resolve Poll
             const pollster = r.pollster || "Unknown Pollster";
-            const pollKey = `${pollster}-${r.start_date}`;
+            const startDateStr = (r.start_date || new Date().toISOString()).split('T')[0];
+            const pollKey = `${pollster}-${startDateStr}`;
             let pollId = pollCache.get(pollKey);
+            
             if (!pollId) {
-                try {
-                    const existingPoll = await pb.collection('polls').getFirstListItem(`pollster="${pollster}" && start_date="${r.start_date}"`);
-                    pollId = existingPoll.id;
-                } catch {
-                    let pSize = parseInt(r.sample_size || "0");
-                    if (isNaN(pSize)) pSize = 0;
+                let pSize = parseInt(r.sample_size || "0");
+                if (isNaN(pSize)) pSize = 0;
 
-                    const newPoll = await pb.collection('polls').create({
-                        pollster: pollster,
-                        start_date: new Date(r.start_date || Date.now()).toISOString(),
-                        end_date: new Date(r.end_date || Date.now()).toISOString(),
-                        sample_size: pSize,
-                        population: r.population || "rv"
-                    });
-                    pollId = newPoll.id;
-                }
-                if (pollId) pollCache.set(pollKey, pollId);
-                await sleep(250); // backoff after poll queries
+                const newPoll = await pb.collection('polls').create({
+                    pollster: pollster,
+                    start_date: new Date(r.start_date || Date.now()).toISOString(),
+                    end_date: new Date(r.end_date || Date.now()).toISOString(),
+                    sample_size: pSize,
+                    population: r.population || "rv"
+                }, { requestKey: null });
+                pollId = newPoll.id;
+                pollCache.set(pollKey, pollId);
+                await sleep(500); // backoff after write
             }
 
             // 4. Insert Result
@@ -150,7 +150,7 @@ async function run() {
                 geography_id: geoId as string,
                 candidate_id: candId as string,
                 pct: pct
-            });
+            }, { requestKey: null });
 
             totalInserted++;
             process.stdout.write(`\rInserted ${i + 1}/${limit} ${target.name} records...`);
