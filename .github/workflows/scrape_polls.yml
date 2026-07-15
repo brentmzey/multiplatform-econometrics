@@ -2,7 +2,7 @@ name: Daily NYT Polls Scraper
 
 on:
   schedule:
-    - cron: '0 12 * * *' # Runs every day at 12:00 UTC
+    - cron: '*/15 * * * *' # Runs every 15 minutes to keep econometric models updated
   workflow_dispatch: # Allows manual triggering from the GitHub UI
 
 jobs:
