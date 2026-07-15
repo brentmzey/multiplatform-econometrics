@@ -20,8 +20,18 @@ Once you have these installed, open your Terminal (Mac/Linux) or Command Prompt 
 
 ## 🚀 Step-by-Step Guide
 
-### Step 1: Download the Data
-Our programs need data to analyze! We will download healthcare data directly from Data.gov, macroeconomic data from FRED (St. Louis Fed), indicator data from the World Bank, and stock market data from Yahoo Finance.
+### Step 1: Automated Pipeline Setup (The Easy Way!)
+If you want to instantly set up the PocketHost schema, scrape all the latest NYT polling data, run the Causal Econometrics tests, and launch the Native Desktop Dashboard, we have provided a single runnable script!
+Just run this command in your terminal from the project root:
+```bash
+./setup_and_run.sh
+```
+*(Note: You will be prompted to supply your PocketHost Admin credentials if they aren't already exported in your environment).*
+
+---
+
+### Step 2: Download Open Source Datasets (Manual)
+Our programs also analyze macroeconomic data! We download healthcare data directly from Data.gov, macroeconomic data from FRED (St. Louis Fed), indicator data from the World Bank, and stock market data from Yahoo Finance.
 
 In your terminal, copy and paste these two commands, pressing **Enter** after each one:
 ```bash
