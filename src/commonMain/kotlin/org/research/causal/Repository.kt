@@ -63,7 +63,6 @@ class PollingRepository(
         val response = client.getRecords(
             collectionName = "poll_results",
             expand = "poll_id,candidate_id,geography_id",
-            sort = "-created",
             perPage = 300
         )
 
