@@ -85,48 +85,59 @@ Simply launch Jupyter or open the file in VS Code to interactively load the data
 
 ---
 
-## 📱 Kotlin Multiplatform Mobile & Desktop UI (New!)
+## 📱 Kotlin Multiplatform Polling Dashboard (New!)
 
-We’ve configured **Compose Multiplatform**! The project now supports compiling the UI and backend logic out to native **Desktop (macOS, Windows, Linux)**, **iOS**, and **Android** targets.
+We’ve completely overhauled the UI using **Compose Multiplatform**! The project now features a premium, interactive **2026 Midterms Polling Dashboard** capable of running natively on **Desktop (macOS, Windows, Linux)** and **Web (Wasm)**.
 
-To run the Desktop native app UI:
+### Dashboard Features
+* **Dual-Pane Layout**: A modern sidebar for filtering and selecting polls.
+* **Interactive State Map**: A responsive U.S. grid map showing state-level polling margins. Click any state to dynamically filter the charts!
+* **Smooth Time Series Charts**: National and state trends rendered using Cubic Bezier curves and gorgeous dark-mode gradients.
+* **Real-time Backend Integration**: Powered by PocketHost (PocketBase) to fetch the latest NYT poll scraping data.
+
+### How to Run Locally (Source)
+To run the native Desktop App UI on your machine:
 ```bash
 ./start_desktop.sh
 ```
+*Note: The app requires PocketHost authentication. Upon launching, you will be prompted to enter the Admin Email and Password.*
 
 ---
 
 ## 📦 How to Download, Install, and Deploy
 
-Whenever a new version of this project is ready, our GitHub Actions pipeline automatically builds all the targets and creates a Semantic Release on GitHub.
+Whenever a new push is made to `main`, our GitHub Actions pipeline automatically builds all targets and creates deployable artifacts. 
 
-### ⬇️ Downloading the Latest Release:
-1. Go to the **Releases** section on the right side of this GitHub repository.
-2. Click on the latest version tag (e.g., `v1.0.0`).
-3. Under the **Assets** dropdown, download the built artifacts (e.g., `Ktor-Server-Jar.zip`, `Web-WasmJs.zip`).
+### ⬇️ Downloading the Latest CI/CD Artifacts:
+1. Go to the **Actions** tab in this GitHub repository.
+2. Click on the latest successful `Build and Deploy Econometrics Suite` workflow run.
+3. Scroll down to the **Artifacts** section and download:
+   - `Compose-Desktop-App` (Contains the Desktop Fat Jar)
+   - `Compose-Web-App` (Contains the Wasm/JS Web App payload)
 
 ### 💻 Local Installation Instructions:
 
-**Backend Server (Ktor)**
-1. Extract `Ktor-Server-Jar.zip`.
-2. Run the executable `.jar` file by running `java -jar kotlin-econometrics-suite-fat.jar` in your terminal. This will launch the backend API server locally on port 8080!
+**Desktop Native App (JVM)**
+1. Extract the downloaded `Compose-Desktop-App.zip`.
+2. Run the executable `.jar` file by typing:
+   ```bash
+   java -jar kotlin-econometrics-suite-fat.jar
+   ```
+3. The native OS application will launch immediately! Enter the credentials to view the polling data.
 
-**Web App (WasmJs)**
-1. Extract `Web-WasmJs.zip`.
-2. Open the directory and serve the static files using a simple local web server (e.g., `python3 -m http.server 8000`).
-3. Open your browser to `http://127.0.0.1:8000` to interact with the Kotlin Web App!
+**Web App (WasmJs) / Netlify Deployment**
+The Web (Wasm) artifacts are purely static files (`.js`, `.wasm`, `.html`) and can be deployed directly to free static hosting services like **Netlify, Vercel, or GitHub Pages**.
 
-**Android App**
-1. You can build the Android APK locally using `./gradlew assembleDebug` or grab it from the CI artifacts.
-2. Transfer the `.apk` file to your Android phone or an Android emulator.
-3. Open it on the phone to install the app. (You may need to allow "Install from Unknown Sources" in your settings).
+**To test locally:**
+1. Extract `Compose-Web-App.zip`.
+2. Open your terminal in the extracted directory and serve the static files:
+   ```bash
+   python3 -m http.server 8000
+   ```
+3. Open your browser to `http://127.0.0.1:8000` to interact with the glorious Kotlin Web App!
 
-### ☁️ Deploying to the Cloud
-
-If you want to host this application for others on the internet, the backend server is fully Dockerized!
-1. Install Docker on your computer or cloud provider (like Fly.io, Render, or AWS).
-2. Build the server image: `docker build -t econometrics-server .`
-3. Run the container: `docker run -p 8080:8080 econometrics-server`
-4. The Web (Wasm) artifacts are purely static files (`.js`, `.wasm`, `.html`) and can be deployed directly to free static hosting services like **GitHub Pages, Vercel, or Netlify**.
+**To deploy to Netlify:**
+1. Simply drag and drop the extracted `Compose-Web-App` directory into the Netlify Drop interface, or link your GitHub repo to Netlify and set the publish directory to `build/dist/wasmJs/productionExecutable/`.
+2. Your interactive polling dashboard will be live on the web instantly!
 
 For a deeper dive into the specific data providers (like FRED and World Bank) and production deployment strategies, please check out our [Data & Deployment Guide](DATA_AND_DEPLOYMENT.md)!
