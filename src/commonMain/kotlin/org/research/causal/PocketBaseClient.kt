@@ -8,6 +8,7 @@ import io.ktor.http.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.put
 
 @Serializable
 data class PocketBaseAuthResponse(
@@ -31,13 +32,13 @@ class PocketBaseClient(
     private var authToken: String? = null
 
     suspend fun authWithPassword(email: String, password: String): PocketBaseAuthResponse {
-        val response = client.post("$baseUrl/api/collections/users/auth-with-password") {
+        val response = client.post("$baseUrl/api/collections/_superusers/auth-with-password") {
             contentType(ContentType.Application.Json)
             setBody(
-                mapOf(
-                    "identity" to email,
-                    "password" to password
-                )
+                kotlinx.serialization.json.buildJsonObject {
+                    put("identity", email)
+                    put("password", password)
+                }
             )
         }
 
