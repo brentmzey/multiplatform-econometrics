@@ -155,12 +155,8 @@ fun LoginScreen(client: PocketBaseClient, onLoginSuccess: () -> Unit) {
                         errorMessage = ""
                         coroutineScope.launch {
                             try {
-                                if (email == "admin@demo.com") {
-                                    onLoginSuccess() 
-                                } else {
-                                    client.authWithPassword(email, password)
-                                    onLoginSuccess()
-                                }
+                                client.authWithPassword(email, password)
+                                onLoginSuccess()
                             } catch (e: Exception) {
                                 errorMessage = e.message ?: "Authentication failed"
                             } finally {

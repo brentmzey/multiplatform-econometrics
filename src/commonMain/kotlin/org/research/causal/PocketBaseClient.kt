@@ -31,7 +31,7 @@ class PocketBaseClient(
     private var authToken: String? = null
 
     suspend fun authWithPassword(email: String, password: String): PocketBaseAuthResponse {
-        val response = client.post("$baseUrl/api/collections/users/auth-with-password") {
+        val response = client.post("$baseUrl/api/collections/_superusers/auth-with-password") {
             contentType(ContentType.Application.Json)
             setBody(
                 mapOf(
