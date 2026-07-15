@@ -1,0 +1,70 @@
+CREATE TABLE GeographyEntity (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    geo_level TEXT NOT NULL
+);
+
+CREATE TABLE CandidateEntity (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    party TEXT NOT NULL
+);
+
+CREATE TABLE PollEntity (
+    id TEXT NOT NULL PRIMARY KEY,
+    pollster TEXT NOT NULL,
+    start_date TEXT NOT NULL,
+    end_date TEXT NOT NULL,
+    sample_size INTEGER NOT NULL,
+    population TEXT NOT NULL
+);
+
+CREATE TABLE PollResultEntity (
+    id TEXT NOT NULL PRIMARY KEY,
+    poll_id TEXT NOT NULL,
+    geography_id TEXT NOT NULL,
+    candidate_id TEXT NOT NULL,
+    pct REAL NOT NULL,
+    created TEXT NOT NULL
+);
+
+-- Queries --
+insertGeography:
+INSERT OR REPLACE INTO GeographyEntity(id, name, geo_level)
+VALUES (?, ?, ?);
+
+insertCandidate:
+INSERT OR REPLACE INTO CandidateEntity(id, name, party)
+VALUES (?, ?, ?);
+
+insertPoll:
+INSERT OR REPLACE INTO PollEntity(id, pollster, start_date, end_date, sample_size, population)
+VALUES (?, ?, ?, ?, ?, ?);
+
+insertPollResult:
+INSERT OR REPLACE INTO PollResultEntity(id, poll_id, geography_id, candidate_id, pct, created)
+VALUES (?, ?, ?, ?, ?, ?);
+
+deleteAllPolls:
+DELETE FROM PollEntity;
+
+deleteAllResults:
+DELETE FROM PollResultEntity;
+
+getAllResults:
+SELECT 
+    pr.id AS result_id,
+    p.id AS poll_id,
+    p.pollster,
+    p.start_date,
+    g.id AS geo_id,
+    g.name AS geo_name,
+    c.id AS cand_id,
+    c.name AS cand_name,
+    c.party,
+    pr.pct
+FROM PollResultEntity pr
+JOIN PollEntity p ON pr.poll_id = p.id
+JOIN GeographyEntity g ON pr.geography_id = g.id
+JOIN CandidateEntity c ON pr.candidate_id = c.id
+ORDER BY p.start_date DESC;
