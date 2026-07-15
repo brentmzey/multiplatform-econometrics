@@ -25,7 +25,10 @@ CREATE TABLE PollResultEntity (
     geography_id TEXT NOT NULL,
     candidate_id TEXT NOT NULL,
     pct REAL NOT NULL,
-    created TEXT NOT NULL
+    created TEXT NOT NULL,
+    FOREIGN KEY(poll_id) REFERENCES PollEntity(id) ON DELETE CASCADE,
+    FOREIGN KEY(geography_id) REFERENCES GeographyEntity(id) ON DELETE CASCADE,
+    FOREIGN KEY(candidate_id) REFERENCES CandidateEntity(id) ON DELETE CASCADE
 );
 
 -- Queries --
