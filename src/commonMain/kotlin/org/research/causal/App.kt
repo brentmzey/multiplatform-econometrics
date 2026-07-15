@@ -201,7 +201,7 @@ fun DashboardScreen(repository: PollingRepository, onLogout: () -> Unit) {
     }
 
     LaunchedEffect(Unit) {
-        loadData(forceRefresh = false)
+        loadData(forceRefresh = true) // Always fetch freshest data from PocketHost on launch
     }
 
     val filteredPolls = remember(polls, searchQuery, selectedStateAbbrev) {

@@ -90,9 +90,11 @@ async function run() {
         console.log(`✅ Fetched and parsed ${records.length} ${target.name} polls.`);
 
         console.log(`4. Pushing ${target.name} Data to PocketHost...`);
-        // We will push 50 records to demonstrate since we are caching now
-        const limit = Math.min(50, records.length);
+        // We will process all records!
+        const limit = records.length;
         
+        let newPollsAdded = 0;
+
         for (let i = 0; i < limit; i++) {
             const r = records[i];
             
@@ -122,9 +124,10 @@ async function run() {
             // 3. Resolve Poll
             const pollster = r.pollster || "Unknown Pollster";
             const startDateStr = (r.start_date || new Date().toISOString()).split('T')[0];
-            const pollKey = `${pollster}-${startDateStr}`;
+            const pollKey = `${pollster}-${startDateStr}-${state}`; // Added state to poll key to avoid deduplication bugs for same pollster/date across states
             let pollId = pollCache.get(pollKey);
             
+            let isNewPoll = false;
             if (!pollId) {
                 let pSize = parseInt(r.sample_size || "0");
                 if (isNaN(pSize)) pSize = 0;
@@ -138,27 +141,34 @@ async function run() {
                 }, { requestKey: null });
                 pollId = newPoll.id;
                 pollCache.set(pollKey, pollId);
+                isNewPoll = true;
                 await sleep(500); // backoff after write
             }
 
-            // 4. Insert Result
-            let pct = parseFloat(r.pct || "0");
-            if (isNaN(pct)) pct = 0;
+            // 4. Insert Result ONLY if the Poll was just created!
+            // This prevents duplicating poll results every time the cron runs.
+            if (isNewPoll) {
+                let pct = parseFloat(r.pct || "0");
+                if (isNaN(pct)) pct = 0;
 
-            await pb.collection('poll_results').create({
-                poll_id: pollId as string,
-                geography_id: geoId as string,
-                candidate_id: candId as string,
-                pct: pct
-            }, { requestKey: null });
+                await pb.collection('poll_results').create({
+                    poll_id: pollId as string,
+                    geography_id: geoId as string,
+                    candidate_id: candId as string,
+                    pct: pct
+                }, { requestKey: null });
 
-            totalInserted++;
-            process.stdout.write(`\rInserted ${i + 1}/${limit} ${target.name} records...`);
+                totalInserted++;
+                newPollsAdded++;
+                // Sleep slightly to respect PocketHost rate limits (prevent 429)
+                await sleep(250);
+            }
             
-            // Sleep slightly to respect PocketHost rate limits (prevent 429)
-            await sleep(250);
+            if (i % 100 === 0 || i === limit - 1) {
+                process.stdout.write(`\rProcessed ${i + 1}/${limit} ${target.name} records... (Added ${newPollsAdded} new results)`);
+            }
         }
-        console.log(`\n✅ Finished batch for ${target.name}.`);
+        console.log(`\n✅ Finished batch for ${target.name}. Added ${newPollsAdded} new records.`);
     }
 
     console.log(`\n🎉 Grand Total: Inserted ${totalInserted} NYT polling records across all races!`);
