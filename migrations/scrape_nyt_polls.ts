@@ -37,7 +37,7 @@ async function run() {
 
     console.log("\n1. Authenticating as Admin...");
     try {
-        await pb.collection('_superusers').authWithPassword(email, password);
+        await pb.admins.authWithPassword(email, password);
         console.log("✅ Authenticated successfully.");
     } catch(e2) {
         console.error("❌ Failed to authenticate as admin.");
