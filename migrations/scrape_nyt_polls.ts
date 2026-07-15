@@ -63,14 +63,15 @@ async function run() {
     const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
     // Helper to safely insert into PocketBase with 429 Rate Limit exponential backoff
-    async function retryCreate(collection: string, payload: any, maxRetries = 3): Promise<any> {
+    async function retryCreate(collection: string, payload: any, maxRetries = 5): Promise<any> {
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
             try {
                 return await pb.collection(collection).create(payload, { requestKey: null });
             } catch (e: any) {
                 if (e.status === 429) {
-                    console.log(`\n⚠️ Rate limited on ${collection}. Sleeping for ${attempt * 2} seconds...`);
-                    await sleep(attempt * 2000);
+                    const waitTime = attempt * 10000; // 10s, 20s, 30s...
+                    console.log(`\n⚠️ Rate limited on ${collection}. Sleeping for ${waitTime/1000} seconds...`);
+                    await sleep(waitTime);
                     if (attempt === maxRetries) throw e;
                 } else if (e.status === 400 && collection === 'poll_results') {
                     // Ignore relation validation failures instead of crashing
