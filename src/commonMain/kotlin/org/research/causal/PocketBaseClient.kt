@@ -53,13 +53,16 @@ class PocketBaseClient(
 
     suspend fun getRecords(collectionName: String, expand: String? = null, sort: String? = null, perPage: Int? = null): PocketBaseRecordList {
         println("GET $baseUrl/api/collections/$collectionName/records with expand=$expand, sort=$sort, perPage=$perPage")
-        val response = client.get("$baseUrl/api/collections/$collectionName/records") {
+        val queryString = buildString {
+            if (expand != null) append("&expand=$expand")
+            if (sort != null) append("&sort=$sort")
+            if (perPage != null) append("&perPage=$perPage")
+        }.replaceFirst("&", "?")
+
+        val response = client.get("$baseUrl/api/collections/$collectionName/records$queryString") {
             if (authToken != null) {
                 header(HttpHeaders.Authorization, authToken)
             }
-            if (expand != null) parameter("expand", expand)
-            if (sort != null) parameter("sort", sort)
-            if (perPage != null) parameter("perPage", perPage)
         }
 
         println("Response: ${response.status}")
