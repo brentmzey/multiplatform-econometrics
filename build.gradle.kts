@@ -4,6 +4,7 @@ plugins {
     kotlin("plugin.compose") version "2.0.21"
     id("org.jetbrains.compose") version "1.6.11"
     id("com.android.application") version "8.2.0"
+    id("app.cash.sqldelight") version "2.0.2"
 }
 
 repositories {
@@ -25,6 +26,7 @@ kotlin {
         }
     }
 
+/*
     wasmJs {
         moduleName = "econometricsApp"
         browser {
@@ -34,6 +36,7 @@ kotlin {
         }
         binaries.executable()
     }
+*/
 
     // Mobile targets for KMP
     iosX64()
@@ -78,6 +81,9 @@ kotlin {
                 
                 // GraphQL (Expedia Group)
                 implementation("com.expediagroup:graphql-kotlin-ktor-server:7.1.1")
+
+                // SQLDelight JVM
+                implementation("app.cash.sqldelight:sqlite-driver:2.0.2")
             }
         }
         val jvmTest by getting {
@@ -93,22 +99,38 @@ kotlin {
                 implementation("androidx.appcompat:appcompat:1.6.1")
                 implementation("androidx.core:core-ktx:1.12.0")
                 implementation("io.ktor:ktor-client-okhttp:3.0.0")
+                
+                // SQLDelight Android
+                implementation("app.cash.sqldelight:android-driver:2.0.2")
             }
         }
         val iosMain by creating {
             dependsOn(commonMain)
             dependencies {
                 implementation("io.ktor:ktor-client-darwin:3.0.0")
+                // SQLDelight iOS
+                implementation("app.cash.sqldelight:native-driver:2.0.2")
             }
         }
         val iosX64Main by getting { dependsOn(iosMain) }
         val iosArm64Main by getting { dependsOn(iosMain) }
         val iosSimulatorArm64Main by getting { dependsOn(iosMain) }
         
+/*
         val wasmJsMain by getting {
             dependencies {
                 implementation("io.ktor:ktor-client-core:3.0.0")
+                // SQLDelight Wasm doesn't natively support SQLite easily out of box yet, we will fallback to in-memory here in the driver.
             }
+        }
+*/
+    }
+}
+
+sqldelight {
+    databases {
+        create("PollingDatabase") {
+            packageName.set("org.research.causal.db")
         }
     }
 }

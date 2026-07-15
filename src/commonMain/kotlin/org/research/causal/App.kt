@@ -24,6 +24,8 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import org.research.causal.db.DatabaseDriverFactory
+import org.research.causal.db.PollingDatabase
 
 sealed class Screen {
     object Login : Screen()
@@ -46,8 +48,9 @@ data class CandidateResult(
 )
 
 @Composable
-fun App() {
+fun App(driverFactory: DatabaseDriverFactory) {
     val client = remember { PocketBaseClient(createDefaultClient()) }
+    val repository = remember { PollingRepository(client, driverFactory) }
     
     // Premium Dark Theme Colors
     val darkColors = darkColors(
@@ -72,7 +75,10 @@ fun App() {
             Crossfade(targetState = currentScreen) { screen ->
                 when (screen) {
                     is Screen.Login -> LoginScreen(client, onLoginSuccess = { currentScreen = Screen.Dashboard })
-                    is Screen.Dashboard -> DashboardScreen(client, onLogout = { currentScreen = Screen.Login })
+                    is Screen.Dashboard -> DashboardScreen(repository, onLogout = { 
+                        client.logout()
+                        currentScreen = Screen.Login 
+                    })
                 }
             }
         }
@@ -178,64 +184,17 @@ fun LoginScreen(client: PocketBaseClient, onLoginSuccess: () -> Unit) {
 }
 
 @Composable
-fun DashboardScreen(client: PocketBaseClient, onLogout: () -> Unit) {
+fun DashboardScreen(repository: PollingRepository, onLogout: () -> Unit) {
     var polls by remember { mutableStateOf<List<PollData>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var searchQuery by remember { mutableStateOf("") }
     val coroutineScope = rememberCoroutineScope()
 
-    fun loadData() {
+    fun loadData(forceRefresh: Boolean = false) {
         isLoading = true
         coroutineScope.launch {
             try {
-                // Fetch recent poll results, expanding relations
-                val response = client.getRecords(
-                    collectionName = "poll_results",
-                    expand = "poll_id,candidate_id,geography_id",
-                    sort = "-created",
-                    perPage = 300
-                )
-
-                val grouped = mutableMapOf<String, MutableList<CandidateResult>>()
-                val pollInfo = mutableMapOf<String, Triple<String, String, String>>()
-
-                response.items.forEach { item ->
-                    try {
-                        val expand = item["expand"]?.jsonObject ?: return@forEach
-                        val poll = expand["poll_id"]?.jsonObject ?: return@forEach
-                        val cand = expand["candidate_id"]?.jsonObject ?: return@forEach
-                        val geo = expand["geography_id"]?.jsonObject ?: return@forEach
-
-                        val pollId = poll["id"]?.jsonPrimitive?.content ?: ""
-                        val pollster = poll["pollster"]?.jsonPrimitive?.content ?: "Unknown"
-                        val startDate = poll["start_date"]?.jsonPrimitive?.content?.take(10) ?: ""
-                        val geoName = geo["name"]?.jsonPrimitive?.content ?: "US"
-                        
-                        val candName = cand["name"]?.jsonPrimitive?.content ?: "Unknown"
-                        val party = cand["party"]?.jsonPrimitive?.content ?: "Unknown"
-                        val pct = item["pct"]?.jsonPrimitive?.content?.toDoubleOrNull() ?: 0.0
-
-                        if (!grouped.containsKey(pollId)) {
-                            grouped[pollId] = mutableListOf()
-                            pollInfo[pollId] = Triple(pollster, startDate, geoName)
-                        }
-                        grouped[pollId]?.add(CandidateResult(candName, party, pct))
-                    } catch (e: Exception) {
-                        // ignore malformed row
-                    }
-                }
-
-                val finalPolls = pollInfo.map { (id, info) ->
-                    PollData(
-                        id = id,
-                        pollster = info.first,
-                        startDate = info.second,
-                        geography = info.third,
-                        results = grouped[id]?.sortedByDescending { it.pct } ?: emptyList()
-                    )
-                }.sortedByDescending { it.startDate }
-
-                polls = finalPolls
+                polls = repository.getPolls(forceRefresh)
             } catch (e: Exception) {
                 println("Fetch error: ${e.message}")
             } finally {
@@ -245,7 +204,7 @@ fun DashboardScreen(client: PocketBaseClient, onLogout: () -> Unit) {
     }
 
     LaunchedEffect(Unit) {
-        loadData()
+        loadData(forceRefresh = false) // Load from cache first!
     }
 
     // Computed property for filtered polls
@@ -275,7 +234,7 @@ fun DashboardScreen(client: PocketBaseClient, onLogout: () -> Unit) {
             contentColor = MaterialTheme.colors.onSurface,
             elevation = 8.dp,
             actions = {
-                IconButton(onClick = { loadData() }) {
+                IconButton(onClick = { loadData(forceRefresh = true) }) {
                     Icon(Icons.Default.Refresh, contentDescription = "Refresh")
                 }
                 TextButton(onClick = onLogout) {
