@@ -12,3 +12,4 @@ build/
 .kotlin/
 migrations/node_modules/
 *.csv
+*.db
