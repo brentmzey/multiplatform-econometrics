@@ -1,15 +1,16 @@
 name: CI/CD Pipeline
 
 on:
-  push:
-    branches:
+  # push:
+    # branches:
       - main
       - development
-  pull_request:
-    branches:
+  # pull_request:
+    # branches:
       - main
       - development
 
+  workflow_dispatch:
 jobs:
   build_and_test:
     name: Build & Test

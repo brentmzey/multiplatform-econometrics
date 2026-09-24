@@ -1,11 +1,11 @@
 name: Build and Deploy Econometrics Suite
 
 on:
-  push:
-    branches:
+  # push:
+    # branches:
       - main
-  pull_request:
-    branches:
+  # pull_request:
+    # branches:
       - main
   workflow_dispatch:
 
